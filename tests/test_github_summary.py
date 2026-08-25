@@ -28,6 +28,43 @@ class GitHubSummaryTests(unittest.TestCase):
         self.assertEqual(github_summary.safe_url("https://user:pass@example.com/job"), "")
         self.assertTrue(github_summary.safe_url("https://example.com/a_(b)?x=1"))
 
+    def test_only_enabled_dynamic_skips_are_reported_as_failures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            health = Path(directory) / "health.csv"
+            with health.open("w", encoding="utf-8", newline="") as stream:
+                writer = csv.DictWriter(
+                    stream,
+                    fieldnames=["company", "enabled", "source", "status", "warning", "error"],
+                )
+                writer.writeheader()
+                writer.writerow({
+                    "company": "Enabled",
+                    "enabled": True,
+                    "source": "workday",
+                    "status": "skipped",
+                    "warning": "access policy changed",
+                })
+                writer.writerow({
+                    "company": "Research only",
+                    "enabled": False,
+                    "source": "manual",
+                    "status": "skipped",
+                    "warning": "intentionally disabled",
+                })
+            failures = github_summary.load_failures(health)
+            self.assertEqual([row["company"] for row in failures], ["Enabled"])
+
+    def test_extracts_last_logged_fatal_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "monitor.log"
+            log.write_text(
+                "INFO starting\nTraceback (most recent call last):\nRuntimeError: upstream failed\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                github_summary.load_last_error(log), "RuntimeError: upstream failed"
+            )
+
     def test_partial_report_is_source_failure_not_total_failure_and_filters_priorities(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)

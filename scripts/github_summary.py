@@ -50,6 +50,20 @@ def load_report(path: Path) -> Dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def load_last_error(path: Path) -> str:
+    if not path.exists():
+        return ""
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()[-120:]
+    except OSError:
+        return ""
+    error_pattern = re.compile(r"error|exception|traceback|failed|denied|timed?\s*out", re.I)
+    for line in reversed(lines):
+        if error_pattern.search(line):
+            return line.strip()
+    return ""
+
+
 def load_failures(path: Path) -> List[Dict[str, str]]:
     if not path.exists():
         return []
@@ -77,8 +91,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--health", type=Path, required=True)
+    parser.add_argument("--log", type=Path, default=Path("logs/monitor.log"))
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--monitor-outcome", default="success")
+    parser.add_argument("--monitor-exit-code", default="")
     parser.add_argument("--step-outcome", action="append", default=[])
     args = parser.parse_args()
 
@@ -127,6 +143,12 @@ def main() -> int:
             "The crawler process failed or did not produce a valid report. Open the workflow logs and uploaded artifact for details.",
             "",
         ])
+        if args.monitor_exit_code == "124":
+            lines.extend(["- Exact cause: crawler exceeded its 90-minute safety limit.", ""])
+        else:
+            fatal_detail = load_last_error(args.log)
+            if fatal_detail:
+                lines.extend([f"- Last logged error: {markdown_text(fatal_detail, limit=1000)}", ""])
     if infrastructure_failures:
         lines.extend(["## Workflow failures", ""])
         for failure in infrastructure_failures:

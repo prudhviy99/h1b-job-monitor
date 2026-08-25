@@ -58,7 +58,13 @@ jobs:
       - name: Crawl official career sources
         id: crawl
         continue-on-error: true
-        run: PYTHONPATH=src python -m h1b_job_monitor crawl --mode auto
+        run: |
+          set +e
+          timeout --signal=TERM --kill-after=30s 90m env PYTHONPATH=src \
+            python -m h1b_job_monitor crawl --mode auto
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
 
       - name: Checkpoint persistent state
         id: checkpoint
@@ -84,6 +90,7 @@ jobs:
         if: ${{ always() }}
         env:
           MONITOR_OUTCOME: ${{ steps.crawl.outcome }}
+          MONITOR_EXIT_CODE: ${{ steps.crawl.outputs.exit_code }}
           STATE_RESTORE_OUTCOME: ${{ steps.state-restore.outcome }}
           BOOTSTRAP_OUTCOME: ${{ steps.bootstrap.outcome }}
           VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
@@ -92,8 +99,10 @@ jobs:
           python scripts/github_summary.py \
             --report reports/latest.json \
             --health reports/company_health.csv \
+            --log logs/monitor.log \
             --output reports/github-summary.md \
             --monitor-outcome "$MONITOR_OUTCOME" \
+            --monitor-exit-code "$MONITOR_EXIT_CODE" \
             --step-outcome "State restore=$STATE_RESTORE_OUTCOME" \
             --step-outcome "Bootstrap=$BOOTSTRAP_OUTCOME" \
             --step-outcome "Validation=$VALIDATE_OUTCOME" \
