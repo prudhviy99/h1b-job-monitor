@@ -1,0 +1,22 @@
+[
+  {
+    "id": "lev-101",
+    "text": "Backend Software Engineer",
+    "createdAt": 1787587200000,
+    "categories": {
+      "location": "Remote - United States",
+      "allLocations": ["Remote - United States"],
+      "commitment": "Full-time",
+      "team": "Engineering",
+      "department": "Platform"
+    },
+    "country": "US",
+    "workplaceType": "remote",
+    "descriptionPlain": "Build Java and Kafka services on AWS. Requires 3+ years of experience.",
+    "lists": [],
+    "additionalPlain": "",
+    "hostedUrl": "https://jobs.lever.co/example/lev-101",
+    "applyUrl": "https://jobs.lever.co/example/lev-101/apply"
+  }
+]
+

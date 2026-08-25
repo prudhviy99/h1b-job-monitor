@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "candidate": {
+    "name": "Prudhvi Yalamanchili",
+    "location": "Redmond, WA",
+    "years_of_relevant_us_experience": 3.5,
+    "current_level": "SWE II / SDE II / mid-level",
+    "selective_senior_policy": "Keep Senior only when the posting states an experience floor no higher than 5 years.",
+    "target_roles": [
+      "Software Engineer II",
+      "Software Development Engineer II",
+      "Backend Engineer",
+      "Distributed Systems Engineer",
+      "Platform Engineer",
+      "Infrastructure Engineer",
+      "Security Engineer",
+      "Site Reliability Engineer",
+      "Production Engineer",
+      "Cloud Software Engineer"
+    ],
+    "core_evidence": [
+      "AWS Shield / DDoS protection",
+      "Java and Spring Boot backend services",
+      "Kinesis and Kafka streaming",
+      "DynamoDB and RDS data modeling",
+      "multi-region AWS systems",
+      "distributed systems and high-throughput telemetry",
+      "security, incident response, and on-call ownership",
+      "AWS CDK, ECS, Docker, observability"
+    ]
+  },
+  "filters": {
+    "lookback_days": 7,
+    "min_match_score": 62,
+    "min_sponsorship_score": 0.55,
+    "max_required_years": 5,
+    "senior_max_required_years": 5,
+    "exclude_explicit_no_sponsorship": true,
+    "require_us_location": true,
+    "subsequent_run_allows_new_undated_jobs": false,
+    "date_confidence_allowed": ["high", "medium_high", "medium"]
+  },
+  "matching": {
+    "target_title_regex": "\\b(software|backend|back-end|platform|infrastructure|site reliability|sre|production engineer|security engineer|cloud engineer|distributed systems?|systems engineer|devops)\\b",
+    "irrelevant_title_regex": "\\b(front[ -]?end|ui engineer|UI|ux|mobile|ios|android|embedded|firmware|hardware|electrical engineer|silicon bring[- ]?up|quantum|simulation|machine learning|ML|AI engineer|data engineer|data science|data scientist|data analyst|business analyst|qa|quality assurance|test engineer|testing|validation|technical escalations?|support engineer|product manager|program manager|project manager|sales engineer|solutions architect|customer support|technical support|designer|research scientist)\\b",
+    "junior_title_regex": "\\b(new grad(uate)?|university grad|campus|early career|entry[ -]level|junior|jr\\.?|associate)\\b",
+    "too_senior_title_regex": "\\b(staff|principal|distinguished|fellow|chief|architect|lead)\\b",
+    "selective_senior_title_regex": "\\b(senior|sr\\.?|software engineer iii|sde iii)\\b",
+    "p0_specialty_title_regex": "backend|platform|infrastructure|distributed|security|site reliability|\\bSRE\\b|cloud|AWS|Kinesis|Kafka|DynamoDB|database|storage|resilien|network",
+    "title_score_rules": [
+      {"label": "software engineering", "weight": 18, "regex": "\\bsoftware (development )?engineer\\b|\\bSDE\\b"},
+      {"label": "backend", "weight": 12, "regex": "backend|back-end"},
+      {"label": "platform/infrastructure/systems", "weight": 12, "regex": "platform|infrastructure|distributed|systems"},
+      {"label": "security/SRE/production", "weight": 14, "regex": "security|site reliability|\\bSRE\\b|production engineer"}
+    ],
+    "skill_groups": [
+      {"label": "backend services", "weight": 12, "patterns": ["\\bbackend\\b", "microservices?", "REST API", "service[- ]to[- ]service"]},
+      {"label": "distributed systems", "weight": 14, "patterns": ["distributed systems?", "high[- ]throughput", "large[- ]scale", "scalab"]},
+      {"label": "Java/Spring", "weight": 12, "patterns": ["\\bJava\\b", "Spring Boot", "Spring WebFlux", "\\bJVM\\b"]},
+      {"label": "AWS/cloud", "weight": 11, "patterns": ["\\bAWS\\b", "Amazon Web Services", "cloud infrastructure", "cloud platform"]},
+      {"label": "streaming/messaging", "weight": 9, "patterns": ["\\bKafka\\b", "\\bKinesis\\b", "event[- ]driven", "stream processing", "\\bSQS\\b"]},
+      {"label": "datastores", "weight": 7, "patterns": ["DynamoDB", "\\bRDS\\b", "PostgreSQL", "NoSQL", "Redis", "data model"]},
+      {"label": "security/DDoS", "weight": 12, "patterns": ["security", "DDoS", "threat", "abuse", "bot", "WAF", "network security"]},
+      {"label": "platform/infrastructure", "weight": 10, "patterns": ["platform engineering", "infrastructure", "Kubernetes", "Terraform", "CDK", "ECS"]},
+      {"label": "SRE/operations", "weight": 9, "patterns": ["site reliability", "\\bSRE\\b", "on[- ]call", "incident", "reliability", "SLO"]},
+      {"label": "observability", "weight": 5, "patterns": ["observability", "CloudWatch", "Prometheus", "Grafana", "OpenTelemetry"]},
+      {"label": "multi-region", "weight": 5, "patterns": ["multi[- ]region", "regional", "global infrastructure", "disaster recovery"]}
+    ]
+  },
+  "network": {
+    "user_agent": "PrudhviH1BJobMonitor/1.0 (personal job discovery; read-only; low-rate)",
+    "timeout_seconds": 25,
+    "min_interval_seconds_per_host": 0.8,
+    "max_retries": 3,
+    "max_response_bytes": 15000000,
+    "company_workers": 4
+  },
+  "reporting": {
+    "include_rejections_in_audit": true,
+    "max_rejections_per_company": 50,
+    "html_title": "Prudhvi's verified H-1B job matches"
+  }
+}

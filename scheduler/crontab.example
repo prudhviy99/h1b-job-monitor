@@ -1,0 +1,4 @@
+# Replace /ABSOLUTE/PATH with this project's absolute directory.
+# Runs at 07:17 and 19:17 in the machine's local timezone.
+17 7,19 * * * /ABSOLUTE/PATH/scripts/run_monitor.sh >> /ABSOLUTE/PATH/logs/cron.log 2>&1
+

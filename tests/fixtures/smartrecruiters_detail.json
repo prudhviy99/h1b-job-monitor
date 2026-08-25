@@ -1,0 +1,15 @@
+{
+  "id": "sr-101",
+  "name": "Software Engineer II, Cloud Security",
+  "releasedDate": "2026-08-25T09:06:24Z",
+  "location": {"fullLocation": "San Diego, CA, United States", "remote": false, "hybrid": true},
+  "postingUrl": "https://jobs.smartrecruiters.com/Example/sr-101",
+  "applyUrl": "https://jobs.smartrecruiters.com/Example/sr-101/apply",
+  "jobAd": {
+    "sections": {
+      "jobDescription": {"text": "<p>Build Java AWS backend and distributed security services.</p>"},
+      "qualifications": {"text": "<p>3+ years of software engineering experience.</p>"}
+    }
+  }
+}
+

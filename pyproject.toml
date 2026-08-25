@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prudhvi-h1b-job-monitor"
+version = "1.0.0"
+description = "Conservative official-source H-1B software job discovery monitor"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+h1b-job-monitor = "h1b_job_monitor.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

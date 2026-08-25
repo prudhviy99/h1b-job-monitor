@@ -1,0 +1,18 @@
+{
+  "jobPostingInfo": {
+    "id": "wd-101",
+    "jobPostingId": "Senior-Software-Engineer_JR101",
+    "jobReqId": "JR101",
+    "title": "Senior Software Engineer, Distributed Systems",
+    "jobDescription": "<p>Build Java Kafka services on AWS. Requires 4+ years of experience.</p>",
+    "startDate": "2026-08-24",
+    "postedOn": "Posted Yesterday",
+    "posted": true,
+    "canApply": true,
+    "location": "Seattle, WA",
+    "additionalLocations": [{"descriptor": "Remote - US"}],
+    "timeType": "Full time",
+    "externalUrl": "https://example.wd1.myworkdayjobs.com/Site/job/Seattle/Senior-Software-Engineer_JR101"
+  }
+}
+

@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+data/*.sqlite*
+logs/
+reports/runs/
+reports/latest.*
+reports/company_health.csv
+.DS_Store
+

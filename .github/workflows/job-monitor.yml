@@ -1,0 +1,253 @@
+name: H-1B job monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 7,19 * * *"
+      timezone: "America/Los_Angeles"
+
+permissions: {}
+
+concurrency:
+  group: h1b-job-monitor
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check out monitor
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore persistent discovery state
+        id: state-restore
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: data/jobs.sqlite
+          key: h1b-state-v2-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            h1b-state-v2-
+
+      - name: Bootstrap state when no cache exists
+        id: bootstrap
+        if: ${{ hashFiles('data/jobs.sqlite') == '' }}
+        run: |
+          python scripts/bootstrap_cloud_state.py \
+            --seed seed/jobs.sqlite.gz \
+            --destination data/jobs.sqlite \
+            --max-age-hours 72
+
+      - name: Validate configuration and tests
+        id: validate
+        run: |
+          PYTHONPATH=src python -m h1b_job_monitor validate-config
+          PYTHONPATH=src python -m unittest discover -s tests -v
+
+      - name: Crawl official career sources
+        id: crawl
+        continue-on-error: true
+        run: PYTHONPATH=src python -m h1b_job_monitor crawl --mode auto
+
+      - name: Checkpoint persistent state
+        id: checkpoint
+        if: ${{ always() && hashFiles('data/jobs.sqlite') != '' && hashFiles('reports/latest.json') != '' }}
+        run: |
+          python - <<'PY'
+          import sqlite3
+
+          connection = sqlite3.connect("data/jobs.sqlite")
+          try:
+              result = connection.execute("PRAGMA quick_check").fetchone()[0]
+              if result != "ok":
+                  raise SystemExit(f"SQLite quick_check failed: {result}")
+              checkpoint = connection.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+              if checkpoint and checkpoint[0] != 0:
+                  raise SystemExit(f"SQLite WAL checkpoint remained busy: {checkpoint}")
+          finally:
+              connection.close()
+          PY
+
+      - name: Build workflow summary
+        id: summary
+        if: ${{ always() }}
+        env:
+          MONITOR_OUTCOME: ${{ steps.crawl.outcome }}
+          STATE_RESTORE_OUTCOME: ${{ steps.state-restore.outcome }}
+          BOOTSTRAP_OUTCOME: ${{ steps.bootstrap.outcome }}
+          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
+          CHECKPOINT_OUTCOME: ${{ steps.checkpoint.outcome }}
+        run: |
+          python scripts/github_summary.py \
+            --report reports/latest.json \
+            --health reports/company_health.csv \
+            --output reports/github-summary.md \
+            --monitor-outcome "$MONITOR_OUTCOME" \
+            --step-outcome "State restore=$STATE_RESTORE_OUTCOME" \
+            --step-outcome "Bootstrap=$BOOTSTRAP_OUTCOME" \
+            --step-outcome "Validation=$VALIDATE_OUTCOME" \
+            --step-outcome "SQLite checkpoint=$CHECKPOINT_OUTCOME"
+          cat reports/github-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify through deduplicated GitHub issues
+        id: notify
+        if: ${{ always() && steps.summary.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_KIND: ${{ steps.summary.outputs.alert_kind }}
+          ALERT_TITLE: ${{ steps.summary.outputs.alert_title }}
+          MATCH_TITLE: ${{ steps.summary.outputs.match_title }}
+          MONITOR_RUN_ID: ${{ steps.summary.outputs.monitor_run_id }}
+          NEW_MATCHES: ${{ steps.summary.outputs.new_matches }}
+        run: |
+          gh label create h1b-monitor-failure \
+            --repo "$GITHUB_REPOSITORY" \
+            --color B60205 \
+            --description "Current H-1B monitor or source failure" \
+            --force
+          OPEN_FAILURE="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --label h1b-monitor-failure \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [ "$ALERT_KIND" = "failure" ]; then
+            if [ -n "$OPEN_FAILURE" ]; then
+              gh issue edit "$OPEN_FAILURE" \
+                --repo "$GITHUB_REPOSITORY" \
+                --title "$ALERT_TITLE" \
+                --body-file reports/github-summary.md
+            else
+              gh issue create \
+                --repo "$GITHUB_REPOSITORY" \
+                --assignee "$GITHUB_REPOSITORY_OWNER" \
+                --label h1b-monitor-failure \
+                --title "$ALERT_TITLE" \
+                --body-file reports/github-summary.md
+            fi
+          else
+            if [ -n "$OPEN_FAILURE" ]; then
+              gh issue comment "$OPEN_FAILURE" \
+                --repo "$GITHUB_REPOSITORY" \
+                --body "Resolved by workflow run $GITHUB_RUN_ID."
+              gh issue close "$OPEN_FAILURE" \
+                --repo "$GITHUB_REPOSITORY" \
+                --reason completed
+            fi
+          fi
+
+          if [ "$NEW_MATCHES" -gt 0 ]; then
+            gh label create h1b-monitor-match \
+              --repo "$GITHUB_REPOSITORY" \
+              --color 1D76DB \
+              --description "New verified H-1B-friendly role matches" \
+              --force
+            EXISTING_MATCH="$(gh issue list \
+              --repo "$GITHUB_REPOSITORY" \
+              --state all \
+              --label h1b-monitor-match \
+              --limit 100 \
+              --json number,body | python -c \
+              'import json, os, sys; marker = "h1b-monitor-run:" + os.environ.get("MONITOR_RUN_ID", ""); rows = json.load(sys.stdin); print(next((row["number"] for row in rows if marker and marker in (row.get("body") or "")), ""))')"
+            if [ -z "$EXISTING_MATCH" ]; then
+              gh issue create \
+                --repo "$GITHUB_REPOSITORY" \
+                --assignee "$GITHUB_REPOSITORY_OWNER" \
+                --label h1b-monitor-match \
+                --title "$MATCH_TITLE" \
+                --body-file reports/github-summary.md
+            fi
+          fi
+
+      - name: Save persistent discovery state
+        id: state-save
+        if: ${{ always() && steps.checkpoint.outcome == 'success' && steps.summary.outcome == 'success' && steps.notify.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: data/jobs.sqlite
+          key: h1b-state-v2-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Upload reports and health log
+        id: upload
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: h1b-job-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            reports/
+            logs/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Notify if persistence or report upload failed
+        id: infrastructure-notify
+        if: ${{ always() && (steps.state-save.outcome == 'failure' || steps.upload.outcome == 'failure') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE_SAVE_OUTCOME: ${{ steps.state-save.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+        run: |
+          {
+            echo '# H-1B job monitor infrastructure failure'
+            echo
+            echo "- Persistent state save: \`$STATE_SAVE_OUTCOME\`"
+            echo "- Report artifact upload: \`$UPLOAD_OUTCOME\`"
+            echo
+            echo "Inspect workflow run $GITHUB_RUN_ID for the exact step logs."
+          } > reports/infrastructure-failure.md
+          gh label create h1b-monitor-failure \
+            --repo "$GITHUB_REPOSITORY" \
+            --color B60205 \
+            --description "Current H-1B monitor or source failure" \
+            --force
+          OPEN_FAILURE="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --label h1b-monitor-failure \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')"
+          if [ -n "$OPEN_FAILURE" ]; then
+            gh issue edit "$OPEN_FAILURE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "H-1B monitor infrastructure failure" \
+              --body-file reports/infrastructure-failure.md
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --assignee "$GITHUB_REPOSITORY_OWNER" \
+              --label h1b-monitor-failure \
+              --title "H-1B monitor infrastructure failure" \
+              --body-file reports/infrastructure-failure.md
+          fi
+
+      - name: Propagate any failure
+        if: >-
+          ${{ always() && (
+            steps.state-restore.outcome == 'failure' ||
+            steps.bootstrap.outcome == 'failure' ||
+            steps.validate.outcome == 'failure' ||
+            steps.crawl.outcome == 'failure' ||
+            steps.checkpoint.outcome == 'failure' ||
+            steps.summary.outcome == 'failure' ||
+            steps.notify.outcome == 'failure' ||
+            steps.state-save.outcome == 'failure' ||
+            steps.upload.outcome == 'failure' ||
+            steps.infrastructure-notify.outcome == 'failure'
+          ) }}
+        run: exit 1

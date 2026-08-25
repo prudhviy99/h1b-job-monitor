@@ -1,0 +1,18 @@
+{
+  "limit": 100,
+  "offset": 0,
+  "totalFound": 1,
+  "content": [
+    {
+      "id": "sr-101",
+      "name": "Software Engineer II, Cloud Security",
+      "releasedDate": "2026-08-25T09:06:24Z",
+      "location": {"fullLocation": "San Diego, CA, United States", "remote": false, "hybrid": true},
+      "department": {"label": "Engineering"},
+      "function": {"label": "Engineering"},
+      "typeOfEmployment": {"label": "Full-time"},
+      "ref": "https://api.smartrecruiters.com/v1/companies/Example/postings/sr-101"
+    }
+  ]
+}
+

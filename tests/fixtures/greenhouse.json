@@ -1,0 +1,27 @@
+{
+  "jobs": [
+    {
+      "id": 101,
+      "internal_job_id": 501,
+      "title": "Software Engineer II, Backend Platform",
+      "first_published": "2026-08-24T10:00:00Z",
+      "updated_at": "2026-08-24T12:00:00Z",
+      "location": {"name": "Seattle, WA"},
+      "absolute_url": "https://jobs.example.com/101",
+      "content": "<p>Build Java AWS distributed systems. 3+ years of experience.</p>",
+      "departments": [{"name": "Engineering"}]
+    },
+    {
+      "id": 102,
+      "internal_job_id": 502,
+      "title": "Software Engineer, Platform",
+      "first_published": "2025-01-01T10:00:00Z",
+      "updated_at": "2026-08-24T12:00:00Z",
+      "location": {"name": "New York, NY"},
+      "absolute_url": "https://jobs.example.com/102",
+      "content": "<p>Old role whose update must not make it new.</p>"
+    }
+  ],
+  "meta": {"total": 2}
+}
+
