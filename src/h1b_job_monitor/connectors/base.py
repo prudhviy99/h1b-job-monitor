@@ -11,19 +11,41 @@ from ..models import Company, FetchResult
 
 LIKELY_TITLE = re.compile(
     r"\b(software|backend|back-end|platform|infrastructure|site reliability|sre|"
-    r"security|cloud|distributed|systems?|production|devops|reliability|java|service)\b",
+    r"security|cloud|distributed|streaming|systems?|production|devops|devsecops|reliability|"
+    r"java|python|api|service|observability|telemetry|sde|swe|mts|technical staff)\b",
     re.I,
 )
 OBVIOUS_NON_TARGET = re.compile(
-    r"\b(intern(ship)?|new grad(uate)?|campus|apprentice|engineering manager|director|"
-    r"vice president|principal|distinguished|staff software|front[ -]?end|mobile|ios|android|"
-    r"data scientist|product manager|sales|marketing|recruiter)\b",
+    r"\b(intern(ship)?|new grad(uate)?|campus|apprentice|engineering (?:manager|mgr\.?|supervisor|leader)|"
+    r"manager|mgr\.?|staff|lead|(?:group|technical) leader|director|"
+    r"vice president|principal|distinguished|LMTS|PMTS|DMTS|AMTS|staff software|front[ -]?end|mobile|ios|android|"
+    r"full[ -]?stack|SDET|software (?:development )?engineer (?:in|for) test|"
+    r"(?:software )?quality engineer|robotics|machine learning engineer|AI engineer|data engineer|data scientist|"
+    r"AI devops|DRTM|secure launch|solutions? engineer|consultant|"
+    r"(?:platform|cloud|infrastructure|security|systems?) specialist|"
+    r"(?:test|testing|qa|quality) (?:platform|infrastructure|systems?)|build (?:&|and) test|"
+    r"product manager|sales|marketing|recruiter)\b",
+    re.I,
+)
+ALIGNED_DATA_ENGINEER = re.compile(
+    r"\bdata engineer\b.{0,45}\b(?:streaming|real[- ]time|telemetry|distributed)\b|"
+    r"\b(?:streaming|real[- ]time|telemetry|distributed)\b.{0,45}\bdata engineer\b",
     re.I,
 )
 
 
 def likely_detail_candidate(title: str) -> bool:
-    return bool(LIKELY_TITLE.search(title or "")) and not bool(OBVIOUS_NON_TARGET.search(title or ""))
+    value = title or ""
+    aligned_data_engineer = bool(ALIGNED_DATA_ENGINEER.search(value))
+    exclusion_value = re.sub(
+        r"\b(?:principal associate|(?:senior )?member of technical staff|MTS)\b",
+        "",
+        value,
+        flags=re.I,
+    )
+    return bool(LIKELY_TITLE.search(value)) and (
+        aligned_data_engineer or not bool(OBVIOUS_NON_TARGET.search(exclusion_value))
+    )
 
 
 class Connector(ABC):

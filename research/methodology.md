@@ -4,14 +4,15 @@ Research cut: **2026-08-25**
 
 ## Candidate definition
 
-The ranking profile is anchored to the supplied one-page resume and the exact profile confirmed in the referenced job-search conversation:
+The ranking profile is anchored to the updated one-page master resume dated August 25, 2026, and the exact profile confirmed in the referenced job-search conversation. The PDF itself is not committed because it contains personal contact information.
 
-- Capital One contract beginning June 2026;
+- Capital One Software Engineer contract beginning June 2026, with Java/Spring Boot APIs and Python/FastAPI services;
 - AWS Software Development Engineer, AWS Shield / DDoS Protection, October 2022-April 2026;
-- Java/Spring backend services, Kinesis/Kafka, DynamoDB/RDS, multi-region AWS delivery, DDoS/security, and production on-call ownership;
+- professionally evidenced Java/Spring backend services, Kinesis telemetry, DynamoDB/RDS, multi-region AWS delivery, DDoS/security, and production on-call ownership;
+- project-backed Spring WebFlux, Redis/Lua, NGINX, rate limiting, circuit breakers, observability, Spring AI, RAG, MCP, and pgvector;
 - target SWE II/SDE II/mid-level and only selective Senior roles whose requirements remain in the 3-5 year band.
 
-The crawler does not infer six-plus years from generic keyword-heavy resume variants. The profile file is `config/profile.json`.
+The month-only employment dates support approximately 3.75 years of relevant US experience as of August 26, 2026. The crawler does not infer six-plus years, formal Staff/leadership level, production AI/ML experience, or employment depth for skills-only entries such as Kafka/MSK. AI project terms receive lower weight and can strengthen only a software/backend/platform title; pure AI/ML/scientist titles remain excluded. The profile file is `config/profile.json`.
 
 ## Independent employer passes
 
@@ -60,4 +61,12 @@ A third access-focused pass audited 39 difficult official career routes against 
 
 The source-specific posting date must have acceptable confidence. Greenhouse uses `first_published`, never `updated_at`. Lever's undocumented millisecond value is validated against hosted JSON-LD for recent candidates. Ashby uses `publishedAt` and labels it last-published. SmartRecruiters uses `releasedDate`. Workday, when explicitly enabled, uses detail `jobPostingInfo.startDate`. Generic pages require schema.org `JobPosting.datePosted` by default.
 
-After date verification, the pipeline applies title/seniority, experience, US location, role family, resume-aligned skills, employer sponsorship confidence, and posting-level work-authorization language. Every rejected job retains reasons in the run audit.
+After date verification, the pipeline applies role shape, title/seniority, ATS department scope, experience, US location, resume-aligned skills, employer sponsorship confidence, and posting-level work-authorization language. An eligible title must be an actual software/development/SDE/SWE/MTS/SRE or explicitly software-aligned backend/platform/infrastructure/security/systems role; a loose domain word cannot rescue customer, sales, advocacy, product, administration, field, or generic systems work. Operations titles require software-development evidence. Pure frontend/mobile/QA/data-science/ML-research/robotics departments are rejected, with a narrow secondary exception for ML/AI platform or infrastructure work.
+
+Java/Spring, Python/FastAPI, AWS, backend/distributed systems, API, and Shield/DDoS/security work form the professional core-evidence gate. Skills present only as a project or skills-list entry are lower-weight secondary evidence; explicit multi-year requirements beyond the resume's established depth reject the role. AI platform, ML infrastructure, and the narrow streaming/telemetry Data Engineer exception can never receive P0.
+
+Experience extraction recognizes common numeric/word/range forms, degree-versus-experience alternatives, and both normal and HTML-flattened Minimum/Preferred Qualifications sections. The candidate's Master's degree selects the applicable degree branch without silently discarding unrelated higher experience requirements. Explicit Senior roles require a verifiable floor of three to five years; common staff-level title codes and level-IV/VI+ forms are rejected.
+
+The technical score is capped at 90: title evidence contributes at most 30, skill groups 42, breadth 6, and experience fit 12. Sponsorship, location, and broad company tags do not add technical points; sponsorship remains a separate gate and priority condition. This prevents keyword inventories or employer reputation from rescuing a weak role. Every rejected job retains reasons in the run audit.
+
+The matching configuration is fingerprinted per company and connector. A profile change causes a one-time seven-day re-evaluation for every complete source without resetting the SQLite database. Previously delivered roles remain suppressed; failed or incomplete sources retain the old fingerprint and retry on a later run.

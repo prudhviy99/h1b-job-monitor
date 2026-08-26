@@ -101,20 +101,22 @@ def main() -> int:
     report = load_report(args.report)
     metadata = report.get("metadata") if isinstance(report.get("metadata"), dict) else {}
     raw_jobs = report.get("jobs") if isinstance(report.get("jobs"), list) else []
-    jobs = [
+    eligible_jobs = [
         job for job in raw_jobs
         if isinstance(job, dict) and job.get("apply_priority") in {"P0", "P1", "P2"}
     ]
     failures = load_failures(args.health)
     reported_status = str(metadata.get("status") or "")
+    usable_partial = reported_status == "partial" and args.monitor_exit_code.strip() == "2"
     monitor_failed = not report or (
-        args.monitor_outcome != "success" and reported_status != "partial"
+        args.monitor_outcome != "success" and not usable_partial
     )
     infrastructure_failures = []
     for outcome in args.step_outcome:
         name, separator, status = outcome.partition("=")
         if separator and status.strip().lower() in {"failure", "cancelled"}:
             infrastructure_failures.append(f"{name.strip()}: {status.strip().lower()}")
+    jobs = [] if monitor_failed or infrastructure_failures else eligible_jobs
     reported_failures = int(metadata.get("companies_failed") or 0)
     should_alert = bool(jobs or failures or reported_failures or monitor_failed or infrastructure_failures)
     date = datetime.now(timezone.utc).date().isoformat()

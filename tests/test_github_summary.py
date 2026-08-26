@@ -113,6 +113,7 @@ class GitHubSummaryTests(unittest.TestCase):
                 "--health", str(health),
                 "--output", str(output),
                 "--monitor-outcome", "failure",
+                "--monitor-exit-code", "2",
             ]
             with patch.object(sys, "argv", argv), patch.dict(
                 os.environ, {"GITHUB_OUTPUT": str(github_output)}, clear=False
@@ -128,6 +129,113 @@ class GitHubSummaryTests(unittest.TestCase):
             self.assertIn("alert_kind=failure", outputs)
             self.assertIn("new_matches=1", outputs)
             self.assertIn("match_title=H-1B monitor: 1 new match", outputs)
+
+    def test_failed_crawl_suppresses_jobs_from_stale_success_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            report = path / "latest.json"
+            output = path / "summary.md"
+            github_output = path / "outputs.txt"
+            report.write_text(json.dumps({
+                "metadata": {"run_id": "stale-run", "status": "success"},
+                "jobs": [{
+                    "apply_priority": "P1",
+                    "company": "Stale Corp",
+                    "title": "Stale Backend Engineer",
+                    "apply_url": "https://example.com/stale",
+                }],
+            }), encoding="utf-8")
+
+            argv = [
+                "github_summary.py",
+                "--report", str(report),
+                "--health", str(path / "missing-health.csv"),
+                "--output", str(output),
+                "--monitor-outcome", "failure",
+                "--monitor-exit-code", "1",
+            ]
+            with patch.object(sys, "argv", argv), patch.dict(
+                os.environ, {"GITHUB_OUTPUT": str(github_output)}, clear=False
+            ):
+                self.assertEqual(github_summary.main(), 0)
+
+            summary = output.read_text(encoding="utf-8")
+            outputs = github_output.read_text(encoding="utf-8")
+            self.assertIn("## Monitor failure", summary)
+            self.assertNotIn("Stale Backend Engineer", summary)
+            self.assertIn("new_matches=0", outputs)
+            self.assertIn("alert_kind=failure", outputs)
+
+    def test_partial_metadata_with_nonpartial_exit_suppresses_jobs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            report = path / "latest.json"
+            output = path / "summary.md"
+            github_output = path / "outputs.txt"
+            report.write_text(json.dumps({
+                "metadata": {"run_id": "invalid-partial", "status": "partial"},
+                "jobs": [{
+                    "apply_priority": "P0",
+                    "company": "Example",
+                    "title": "Backend Engineer",
+                }],
+            }), encoding="utf-8")
+
+            argv = [
+                "github_summary.py",
+                "--report", str(report),
+                "--health", str(path / "missing-health.csv"),
+                "--output", str(output),
+                "--monitor-outcome", "failure",
+                "--monitor-exit-code", "1",
+            ]
+            with patch.object(sys, "argv", argv), patch.dict(
+                os.environ, {"GITHUB_OUTPUT": str(github_output)}, clear=False
+            ):
+                self.assertEqual(github_summary.main(), 0)
+
+            summary = output.read_text(encoding="utf-8")
+            outputs = github_output.read_text(encoding="utf-8")
+            self.assertIn("## Monitor failure", summary)
+            self.assertNotIn("Backend Engineer", summary)
+            self.assertIn("new_matches=0", outputs)
+
+    def test_infrastructure_failure_suppresses_otherwise_valid_jobs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            report = path / "latest.json"
+            output = path / "summary.md"
+            github_output = path / "outputs.txt"
+            report.write_text(json.dumps({
+                "metadata": {"run_id": "run-1", "status": "success"},
+                "jobs": [{
+                    "apply_priority": "P2",
+                    "company": "Example",
+                    "title": "Platform Engineer",
+                }],
+            }), encoding="utf-8")
+
+            argv = [
+                "github_summary.py",
+                "--report", str(report),
+                "--health", str(path / "missing-health.csv"),
+                "--output", str(output),
+                "--monitor-outcome", "success",
+                "--monitor-exit-code", "0",
+                "--step-outcome", "SQLite checkpoint=failure",
+            ]
+            with patch.object(sys, "argv", argv), patch.dict(
+                os.environ, {"GITHUB_OUTPUT": str(github_output)}, clear=False
+            ):
+                self.assertEqual(github_summary.main(), 0)
+
+            summary = output.read_text(encoding="utf-8")
+            outputs = github_output.read_text(encoding="utf-8")
+            self.assertIn("## Workflow failures", summary)
+            self.assertIn("SQLite checkpoint: failure", summary)
+            self.assertNotIn("Platform Engineer", summary)
+            self.assertIn("new_matches=0", outputs)
+            self.assertIn("alert_kind=failure", outputs)
 
 
 if __name__ == "__main__":

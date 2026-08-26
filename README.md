@@ -1,6 +1,6 @@
 # H-1B-friendly software job monitor
 
-This project discovers newly posted US software-engineering roles from official employer career sources, then applies conservative gates for Prudhvi's actual background: AWS Shield, Java/Spring, backend and distributed systems, Kinesis/Kafka, DynamoDB/RDS, multi-region infrastructure, security, SRE/operations, and roughly 3.5 years of relevant US experience.
+This project discovers newly posted US software-engineering roles from official employer career sources, then applies conservative gates for the candidate's current background: Capital One Java/Spring Boot and Python/FastAPI services; AWS Shield, backend and distributed systems, Kinesis telemetry, DynamoDB/RDS, multi-region infrastructure, security, and SRE/operations; plus project-backed WebFlux/Redis/NGINX and AI incident-triage experience. The profile represents roughly 3.75 years of relevant US experience as of August 2026.
 
 It is deliberately not a LinkedIn scraper, job aggregator, auto-apply tool, or claim that a company will sponsor every role.
 
@@ -59,9 +59,17 @@ Stable `reports/latest.*` files are rewritten only after the report export compl
 
 ## Conservative gates
 
-The defaults live in `config/profile.json`. The `filters` section controls the score, sponsorship, years-of-experience, date-confidence, freshness, and US-location gates. The `matching` section exposes title inclusion/exclusion, seniority, P0 specialty, title scoring, and every resume-aligned skill group/weight as configurable regular expressions. Invalid matching configuration is caught by `validate-config` before a crawl.
+The defaults live in `config/profile.json`. The `filters` section controls technical-score thresholds, sponsorship, years-of-experience, date-confidence, freshness, and US-location gates. The `matching` section exposes role-shape and department inclusion/exclusion, seniority, P0 specialty, capped title/skill scoring, and every resume-aligned skill group/weight as configurable regular expressions. Invalid matching configuration is caught by `validate-config` before a crawl.
 
-The monitor rejects internships, new-grad/entry-level and level-I roles, managers/directors, staff/principal/architect/lead roles, clearly unrelated frontend/mobile/data-science/ML/test/support roles, federal/citizenship/clearance-restricted roles, non-US or unverifiable locations, and roles requiring more than five years.
+The match score is deliberately technical-only: title evidence is capped at 30, skill evidence at 42, breadth at 6, and experience fit at 12, for a maximum of 90. Employer sponsorship, geography, and broad company tags cannot rescue a technically weak role; sponsorship remains a separate hard gate and priority condition.
+
+The AI/RAG/MCP material is project evidence, not production ML experience. It can strengthen an otherwise relevant backend or platform posting, but pure AI-engineer, ML-engineer, scientist, and research titles remain excluded. AI/ML platform work is capped below P0. Kafka/MSK, Redis, Docker/ECS, GraphQL, observability tools, and AI application tooling are treated as secondary evidence: a posting that explicitly requires more experience in one of these than the resume establishes is rejected even if Java/AWS terms also appear. Kubernetes and Terraform are not scored because they do not appear in the current canonical resume.
+
+The monitor fingerprints the relevance-affecting profile. When matching rules change, each healthy company automatically receives a one-time seven-day re-evaluation. Roles already delivered remain deduplicated; a previously rejected role that newly qualifies is labeled `new` because it is new to the user. A failed or incomplete source keeps its prior fingerprint and retries the backfill later.
+
+The monitor requires an actual software-engineering role shape plus professionally evidenced Java, Python, AWS, backend/distributed-systems, security, or API work. Bare words such as “platform” or “backend” cannot rescue customer, product, advocacy, administration, or generic systems roles. Operations-oriented SRE/platform/infrastructure/security titles also require software-development evidence. Explicit ATS department scope is used to reject frontend/mobile/QA/data-science/robotics work; software work on ML platform or infrastructure may survive but remains capped below P0. A narrowly aligned streaming/real-time/telemetry Data Engineer role can survive, but ordinary data-engineering roles do not.
+
+The monitor also rejects internships, new-grad/entry-level and level-I roles, managers/directors, staff/principal/architect/lead and common L6/IC6/E6+ roles, clearly unrelated frontend/mobile/data-science/pure-ML/test/support roles, federal/citizenship/clearance-restricted roles, non-US or unverifiable locations, and roles requiring more than five years.
 
 `Senior` is not automatically rejected. A Senior role survives only when the description supplies a verifiable experience floor of five years or less. A Senior role with no parseable experience floor is rejected.
 
@@ -96,11 +104,13 @@ This policy costs coverage, intentionally. `company_health.csv` makes that cost 
 
 ## Scheduling twice daily
 
-### Hosted GitHub Actions schedule (active deployment)
+### Hosted GitHub Actions schedule
 
-The private [prudhviy99/h1b-job-monitor](https://github.com/prudhviy99/h1b-job-monitor) repository runs this monitor at **07:17 and 19:17 America/Los_Angeles**, including daylight-saving changes. GitHub's hosted runner continues when this laptop is asleep, closed, offline, or powered down. The workflow can also be started manually from the repository's Actions tab.
+The workflow is configured for **07:17 and 19:17 America/Los_Angeles**, including daylight-saving changes. GitHub's hosted runner continues when the laptop is asleep, closed, offline, or powered down, and the workflow can also be started manually from the repository's Actions tab.
 
-Each run writes a GitHub job summary and retains the full report artifact for 30 days. New P0/P1/P2 matches create a private issue assigned to the repository owner. Source or workflow failures update one open failure issue instead of creating duplicates; the next clean run closes it. No issue is created for a clean run with no new matches.
+This repository is intentionally public. Its workflow definition, run logs, job summaries, match/failure issues, repository owner, and legacy local launcher/package identifiers are therefore public. The checked-in matching profile contains only generalized experience and skill evidence; the resume file, contact details, and local SQLite database are excluded. Each run retains the report artifact for 30 days and creates an owner-assigned public issue for new P0/P1/P2 matches.
+
+Source or workflow failures update one open failure issue instead of creating duplicates; the next clean run closes it. A failed finalization/checkpoint suppresses match notifications so a retry cannot create an avoidable duplicate alert. No issue is created for a clean run with no new matches.
 
 The earlier laptop-bound Codex task is paused after the hosted workflow's first successful run, preventing independent databases and duplicate alerts.
 
@@ -132,7 +142,7 @@ Copy and edit `scheduler/crontab.example`. Cron uses the machine's local timezon
 
 ### GitHub Actions
 
-`.github/workflows/job-monitor.yml` is the deployed workflow. It uses GitHub's timezone-aware schedule, prevents overlapping runs, validates the full deterministic test suite before crawling, checkpoints SQLite before saving state, uploads reports, and pins third-party actions to reviewed commit SHAs. Scheduled workflow starts can still be delayed during periods of high GitHub Actions load; 07:17/19:17 are target times, not hard real-time guarantees.
+`.github/workflows/job-monitor.yml` is the hosted workflow definition. It uses GitHub's timezone-aware schedule, prevents overlapping runs, validates the full deterministic test suite before crawling, checkpoints SQLite before saving state, uploads reports, and pins third-party actions to reviewed commit SHAs. Scheduled workflow starts can still be delayed during periods of high GitHub Actions load; 07:17/19:17 are target times, not hard real-time guarantees.
 
 ## Reliability and state
 
@@ -152,7 +162,7 @@ Run the deterministic suite:
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-Fixtures cover Greenhouse's `first_published` versus `updated_at`, Lever JSON-LD date and same-ID repost validation, Ashby unlisted posts and nested secondary locations, SmartRecruiters list/detail behavior and its explicit policy gate, Workday exact dates, sitemap JSON-LD/repost/deduplication, standards-correct robots Allow precedence, selective Senior and junior gates, sponsorship/work-authorization overrides, configurable US location/title rules, and SQLite new/seen/reposted state.
+Fixtures cover Greenhouse's `first_published` versus `updated_at`, Lever JSON-LD date and same-ID repost validation, Ashby unlisted posts and nested secondary locations, SmartRecruiters list/detail behavior and its explicit policy gate, Workday exact dates, sitemap JSON-LD/repost/deduplication, standards-correct robots Allow precedence, selective Senior and junior gates, flattened ATS qualification sections, role/department scope, sponsorship/work-authorization overrides, configurable US location/title rules, atomic delivery finalization, and SQLite new/seen/reposted state.
 
 The initial build also performed live smoke crawls against Amazon Jobs, Datadog/Greenhouse, Ramp/Ashby, Palantir/Lever, and ServiceNow/SmartRecruiters. Live job counts are intentionally not asserted in unit tests because they are volatile.
 

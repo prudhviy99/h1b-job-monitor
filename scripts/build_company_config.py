@@ -23,12 +23,15 @@ CONFIDENCE_SCORE = {
 
 TARGET_SLUG_REGEX = (
     r"software|backend|back-end|platform|infrastructure|security|site-reliability|"
-    r"reliability|cloud|systems|devops|java|distributed|production-engineer"
+    r"reliability|cloud|systems|devops|devsecops|java|python|(?:^|[-/])api(?:[-/]|$)|"
+    r"(?:^|[-/])(?:sde|swe|mts)(?:[-/]|$)|member-of-technical-staff|"
+    r"distributed|streaming|real-time|production-engineer|observability|telemetry"
 )
 SENIORITY_SLUG_EXCLUDE_REGEX = (
     r"(?:^|[-/])(?:intern(?:ship)?|new-grad|graduate|student|manager|director|staff|"
     r"principal|distinguished|fellow|chief|architect|lead)(?:[-/]|$)"
 )
+SENIORITY_SLUG_EXEMPT_REGEX = r"member-of-technical-staff|principal-associate"
 HPE_SLUG_EXCLUDE_REGEX = (
     rf"(?:{SENIORITY_SLUG_EXCLUDE_REGEX})|"
     r"(?:^|[-/])(?:pre-sales|presales|sales|account-executive|officer|strategist|consultant|"
@@ -37,8 +40,10 @@ HPE_SLUG_EXCLUDE_REGEX = (
     r"(?:[-/]|$)"
 )
 TARGET_REFINED_SLUG_REGEX = (
-    r"software|backend|back-end|site-reliability|devops|distributed|java|cybersecurity|"
-    r"application-security|cloud-security|(?:platform|infrastructure|cloud|systems?|security)-"
+    r"software|backend|back-end|site-reliability|devops|devsecops|distributed|java|python|"
+    r"(?:^|[-/])api(?:[-/]|$)|(?:^|[-/])(?:sde|swe|mts)(?:[-/]|$)|member-of-technical-staff|"
+    r"streaming|real-time|observability|telemetry|cybersecurity|application-security|"
+    r"cloud-security|(?:platform|infrastructure|cloud|systems?|security)-"
     r"(?:software-)?(?:engineer|developer)|(?:engineer|developer)-"
     r"(?:platform|infrastructure|cloud|systems?|security)"
 )
@@ -158,6 +163,7 @@ SAFE_SITEMAPS: Dict[str, Dict[str, Any]] = {
         "sitemap_url": "https://careers.hpe.com/us/en/sitemap_index.xml",
         "job_url_regex": r"^https://careers\.hpe\.com/us/en/job/\d+/[^/?#]+$",
         "max_detail_requests": 180,
+        "hiring_organization_aliases": ["HPE"],
         "url_exclude_regex": HPE_SLUG_EXCLUDE_REGEX,
         "crawl_delay_seconds": 2,
         "terms_url": "https://www.hpe.com/us/en/legal/acceptable-use-policy.html",
@@ -380,7 +386,16 @@ def main() -> None:
             "type": "sitemap",
             "sitemap_url": source["sitemap_url"],
             "job_url_regex": source["job_url_regex"],
+        }
+        if source.get("hiring_organization_aliases"):
+            item["connector"]["hiring_organization_aliases"] = list(
+                source["hiring_organization_aliases"]
+            )
+        item["connector"].update({
             "url_include_regex": source.get("url_include_regex", TARGET_SLUG_REGEX),
+            "url_exclude_exempt_regex": source.get(
+                "url_exclude_exempt_regex", SENIORITY_SLUG_EXEMPT_REGEX
+            ),
             "url_exclude_regex": source.get("url_exclude_regex", SENIORITY_SLUG_EXCLUDE_REGEX),
             "access_policy": "strict",
             "allow_lastmod_as_posted_date": False,
@@ -391,7 +406,7 @@ def main() -> None:
             "access_reviewed_at": "2026-08-25",
             "access_review": source["access_review"],
             "default_country": "US",
-        }
+        })
 
     ordered = sorted(companies.values(), key=lambda x: (-x["sponsorship"]["score"], x["name"]))
 

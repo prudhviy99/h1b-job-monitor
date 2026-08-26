@@ -83,10 +83,16 @@ class AmazonConnector(Connector):
             posted = parse_datetime(item.get("posted_date"))
             path = str(item.get("job_path", ""))
             source_url = path if path.startswith("http") else f"https://www.amazon.jobs{path}"
-            description = " ".join(
-                strip_html(item.get(field, ""))
-                for field in ("description", "basic_qualifications", "preferred_qualifications")
-            )
+            description_parts = [strip_html(item.get("description", ""))]
+            basic_qualifications = strip_html(item.get("basic_qualifications", ""))
+            preferred_qualifications = strip_html(item.get("preferred_qualifications", ""))
+            if basic_qualifications:
+                description_parts.append(f"Basic Qualifications: {basic_qualifications}")
+            if preferred_qualifications:
+                description_parts.append(
+                    f"Preferred Qualifications: {preferred_qualifications}"
+                )
+            description = " ".join(part for part in description_parts if part)
             locations = item.get("locations") or [item.get("location", "")]
             jobs.append(
                 Job(

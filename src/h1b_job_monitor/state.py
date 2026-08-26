@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS sightings (
     run_id TEXT NOT NULL,
     job_key TEXT NOT NULL,
     seen_at TEXT NOT NULL,
+    posted_at TEXT,
     accepted INTEGER NOT NULL,
     emitted INTEGER NOT NULL,
     match_score REAL NOT NULL,
@@ -81,6 +82,14 @@ CREATE TABLE IF NOT EXISTS company_runs (
 CREATE INDEX IF NOT EXISTS idx_runs_status_started ON runs(status, started_at);
 CREATE INDEX IF NOT EXISTS idx_company_runs_cursor ON company_runs(company_id, source, status, run_id);
 
+CREATE TABLE IF NOT EXISTS company_profile_fingerprints (
+    company_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    profile_fingerprint TEXT NOT NULL,
+    applied_at TEXT NOT NULL,
+    PRIMARY KEY(company_id, source)
+);
+
 CREATE TABLE IF NOT EXISTS http_cache (
     url TEXT PRIMARY KEY,
     etag TEXT,
@@ -101,6 +110,12 @@ class StateStore:
         self.conn.row_factory = sqlite3.Row
         with self._lock:
             self.conn.executescript(SCHEMA)
+            sighting_columns = {
+                str(row["name"])
+                for row in self.conn.execute("PRAGMA table_info(sightings)").fetchall()
+            }
+            if "posted_at" not in sighting_columns:
+                self.conn.execute("ALTER TABLE sightings ADD COLUMN posted_at TEXT")
             self.conn.commit()
 
     def close(self) -> None:
@@ -139,6 +154,91 @@ class StateStore:
             )
             self.conn.commit()
 
+    def finalize_usable_run(
+        self,
+        run_id: str,
+        status: str,
+        stats: Dict[str, Any],
+        emitted_job_keys: Iterable[str],
+        emitted_at: datetime,
+        completed_profile_sources: Iterable[Tuple[str, str]],
+        profile_fingerprint: str,
+    ) -> None:
+        """Atomically commit delivery markers, run status, and per-source profile state."""
+        if status not in {"success", "partial"}:
+            raise ValueError("finalize_usable_run requires success or partial status")
+        emitted_keys = list(dict.fromkeys(emitted_job_keys))
+        profile_rows = [
+            (company_id, source, profile_fingerprint, emitted_at.isoformat())
+            for company_id, source in completed_profile_sources
+        ]
+        finished_at = datetime.now(timezone.utc).isoformat()
+        with self._lock, self.conn:
+            # A sighting is durable before its report is delivered, but its
+            # observed posting date must not become the canonical comparison
+            # point until this run is usable. Promotion is also monotonic: a
+            # transient older source date must not roll the repost watermark
+            # backward and make the next unchanged sighting look reposted.
+            self.conn.execute(
+                """
+                UPDATE jobs
+                SET posted_at = (
+                    SELECT CASE
+                        WHEN s.posted_at IS NOT NULL
+                         AND (
+                            jobs.posted_at IS NULL
+                            OR julianday(s.posted_at) > julianday(jobs.posted_at)
+                         )
+                        THEN s.posted_at
+                        ELSE jobs.posted_at
+                    END
+                    FROM sightings AS s
+                    WHERE s.run_id = ? AND s.job_key = jobs.job_key
+                )
+                WHERE job_key IN (
+                    SELECT job_key FROM sightings WHERE run_id = ?
+                )
+                """,
+                (run_id, run_id),
+            )
+            if emitted_keys:
+                self.conn.executemany(
+                    "UPDATE jobs SET last_emitted_at=? WHERE job_key=?",
+                    [(emitted_at.isoformat(), job_key) for job_key in emitted_keys],
+                )
+                self.conn.executemany(
+                    "UPDATE sightings SET emitted=1 WHERE run_id=? AND job_key=?",
+                    [(run_id, job_key) for job_key in emitted_keys],
+                )
+            self.conn.execute(
+                """
+                UPDATE runs SET finished_at=?, status=?, companies_ok=?, companies_failed=?,
+                    fetched_jobs=?, accepted_jobs=?, emitted_jobs=?, error='' WHERE run_id=?
+                """,
+                (
+                    finished_at,
+                    status,
+                    stats.get("companies_ok", 0),
+                    stats.get("companies_failed", 0),
+                    stats.get("fetched_jobs", 0),
+                    stats.get("accepted_jobs", 0),
+                    stats.get("emitted_jobs", 0),
+                    run_id,
+                ),
+            )
+            if profile_rows:
+                self.conn.executemany(
+                    """
+                    INSERT INTO company_profile_fingerprints
+                        (company_id, source, profile_fingerprint, applied_at)
+                    VALUES(?,?,?,?)
+                    ON CONFLICT(company_id, source) DO UPDATE SET
+                        profile_fingerprint=excluded.profile_fingerprint,
+                        applied_at=excluded.applied_at
+                    """,
+                    profile_rows,
+                )
+
     def last_usable_run_started_at(self) -> Optional[datetime]:
         """Return the newest completed run that produced at least one healthy source."""
         with self._lock:
@@ -173,6 +273,57 @@ class StateStore:
                 parameters,
             ).fetchone()
         return datetime.fromisoformat(row["started_at"]) if row else None
+
+    def company_profile_fingerprint(self, company_id: str, source: str) -> Optional[str]:
+        """Return the relevance profile last applied completely to this source."""
+        with self._lock:
+            row = self.conn.execute(
+                """
+                SELECT profile_fingerprint
+                FROM company_profile_fingerprints
+                WHERE company_id = ? AND source = ?
+                """,
+                (company_id, source),
+            ).fetchone()
+        return str(row["profile_fingerprint"]) if row else None
+
+    def set_company_profile_fingerprint(
+        self,
+        company_id: str,
+        source: str,
+        profile_fingerprint: str,
+        applied_at: datetime,
+    ) -> None:
+        """Record a profile only after a complete source run and successful report export."""
+        self.set_company_profile_fingerprints(
+            [(company_id, source)], profile_fingerprint, applied_at
+        )
+
+    def set_company_profile_fingerprints(
+        self,
+        companies_and_sources: Iterable[Tuple[str, str]],
+        profile_fingerprint: str,
+        applied_at: datetime,
+    ) -> None:
+        """Atomically record the profile for every completely processed source."""
+        rows = [
+            (company_id, source, profile_fingerprint, applied_at.isoformat())
+            for company_id, source in companies_and_sources
+        ]
+        if not rows:
+            return
+        with self._lock, self.conn:
+            self.conn.executemany(
+                """
+                INSERT INTO company_profile_fingerprints
+                    (company_id, source, profile_fingerprint, applied_at)
+                VALUES(?,?,?,?)
+                ON CONFLICT(company_id, source) DO UPDATE SET
+                    profile_fingerprint=excluded.profile_fingerprint,
+                    applied_at=excluded.applied_at
+                """,
+                rows,
+            )
 
     def was_emitted_in_usable_run(self, job: Job) -> bool:
         """Return whether this job was delivered by a completed usable run."""
@@ -258,7 +409,7 @@ class StateStore:
             else:
                 self.conn.execute(
                     """
-                    UPDATE jobs SET canonical_url=?, title=?, location=?, posted_at=COALESCE(?, posted_at),
+                    UPDATE jobs SET canonical_url=?, title=?, location=?,
                         last_seen_at=?, last_emitted_at=CASE WHEN ? THEN ? ELSE last_emitted_at END,
                         content_hash=?, active=1, raw_json=? WHERE job_key=?
                     """,
@@ -266,7 +417,6 @@ class StateStore:
                         job.source_url,
                         job.title,
                         job.location,
-                        posted,
                         seen_at.isoformat(),
                         1 if emitted else 0,
                         seen_at.isoformat(),
@@ -278,13 +428,14 @@ class StateStore:
             self.conn.execute(
                 """
                 INSERT OR REPLACE INTO sightings
-                (run_id, job_key, seen_at, accepted, emitted, match_score, priority, event_type)
-                VALUES(?,?,?,?,?,?,?,?)
+                (run_id, job_key, seen_at, posted_at, accepted, emitted, match_score, priority, event_type)
+                VALUES(?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     run_id,
                     job.job_key,
                     seen_at.isoformat(),
+                    posted,
                     1 if accepted else 0,
                     1 if emitted else 0,
                     job.match_score,

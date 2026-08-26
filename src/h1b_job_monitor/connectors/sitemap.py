@@ -26,6 +26,23 @@ def _identifier(value: Any) -> str:
     return str(value or "")
 
 
+def _terminal_gone_status(exc: HttpError) -> Optional[int]:
+    """Return a terminal HTTP status for a definitively removed detail page."""
+    cause_status = getattr(exc.__cause__, "code", None)
+    try:
+        status = int(cause_status)
+    except (TypeError, ValueError):
+        status = None
+    if status in {404, 410}:
+        return status
+
+    # HttpError's public shape is currently text-only. Keep the fallback
+    # anchored to its exact status prefix so a URL or response body containing
+    # "404" cannot make a transient failure look terminal.
+    match = re.match(r"^HTTP (404|410) for ", str(exc))
+    return int(match.group(1)) if match else None
+
+
 @register
 class SitemapConnector(Connector):
     type_name = "sitemap"
@@ -39,6 +56,16 @@ class SitemapConnector(Connector):
         url_pattern = re.compile(config.get("job_url_regex", r"/jobs?/|/careers?/"), re.I)
         include_pattern = re.compile(config["url_include_regex"], re.I) if config.get("url_include_regex") else None
         exclude_pattern = re.compile(config["url_exclude_regex"], re.I) if config.get("url_exclude_regex") else None
+        exclude_exempt_pattern = (
+            re.compile(config["url_exclude_exempt_regex"], re.I)
+            if config.get("url_exclude_exempt_regex")
+            else None
+        )
+        hiring_organization_aliases = {
+            str(alias).strip().casefold()
+            for alias in config.get("hiring_organization_aliases", [])
+            if str(alias).strip()
+        }
         client.reset_request_count()
 
         crawl_delay = float(config.get("crawl_delay_seconds", 0))
@@ -82,7 +109,11 @@ class SitemapConnector(Connector):
                     continue
                 if include_pattern and not include_pattern.search(urlsplit(location).path):
                     continue
-                if exclude_pattern and exclude_pattern.search(urlsplit(location).path):
+                path = urlsplit(location).path
+                exclusion_path = (
+                    exclude_exempt_pattern.sub("", path) if exclude_exempt_pattern else path
+                )
+                if exclude_pattern and exclude_pattern.search(exclusion_path):
                     continue
                 modified = parse_datetime(values.get("lastmod"))
                 if modified is not None and modified < since - timedelta(days=2):
@@ -108,12 +139,22 @@ class SitemapConnector(Connector):
 
         jobs: List[Job] = []
         detail_errors = 0
+        gone_details = 0
         for page_url, lastmod, _previously_seen in candidates[:max_detail]:
             if crawl_delay:
                 client.limiter.set_host_interval(page_url, crawl_delay)
             try:
                 page = client.get(page_url, access_policy=access, use_cache=True).text
-            except (HttpError, UnicodeError, ValueError) as exc:
+            except HttpError as exc:
+                if _terminal_gone_status(exc) is not None:
+                    gone_details += 1
+                    continue
+                detail_errors += 1
+                cursor_complete = False
+                if detail_errors <= 5:
+                    warning_parts.append(f"Skipped failed detail page {page_url}: {exc}")
+                continue
+            except (UnicodeError, ValueError) as exc:
                 detail_errors += 1
                 cursor_complete = False
                 if detail_errors <= 5:
@@ -137,7 +178,17 @@ class SitemapConnector(Connector):
                 organization = item.get("hiringOrganization") or {}
                 if isinstance(organization, dict):
                     org_name = str(organization.get("name", ""))
-                    if org_name and company.name.lower() not in org_name.lower() and org_name.lower() not in company.name.lower():
+                    normalized_org_name = org_name.strip().casefold()
+                    company_name = company.name.strip().casefold()
+                    company_name_matches = bool(
+                        normalized_org_name
+                        and (
+                            company_name in normalized_org_name
+                            or normalized_org_name in company_name
+                        )
+                    )
+                    alias_matches = normalized_org_name in hiring_organization_aliases
+                    if org_name and not company_name_matches and not alias_matches:
                         warning_parts.append(f"Skipped JSON-LD with mismatched hiringOrganization={org_name!r}.")
                         continue
                 jobs.append(
@@ -170,6 +221,10 @@ class SitemapConnector(Connector):
             )
         if detail_errors > 5:
             warning_parts.append(f"Skipped {detail_errors - 5} additional failed detail pages.")
+        if gone_details:
+            warning_parts.append(
+                f"Skipped {gone_details} gone detail page(s) returning terminal HTTP 404/410."
+            )
         return FetchResult(
             company_id=company.id,
             source=self.type_name,

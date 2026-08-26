@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
@@ -40,6 +42,22 @@ class JobMonitor:
         )
         self.workers = max(1, min(12, int(network.get("company_workers", 4))))
         self.ranker = Ranker(profile)
+        candidate = profile.get("candidate", {})
+        self.profile_revision = str(candidate.get("profile_revision", "unversioned"))
+        fingerprint_payload = {
+            "profile_revision": self.profile_revision,
+            "candidate_years": candidate.get("years_of_relevant_us_experience"),
+            "highest_degree": candidate.get("highest_degree"),
+            "filters": profile.get("filters", {}),
+            "matching": profile.get("matching", {}),
+        }
+        serialized_profile = json.dumps(
+            fingerprint_payload,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        self.profile_fingerprint = hashlib.sha256(serialized_profile.encode("utf-8")).hexdigest()[:16]
 
     def _fetch_one(self, company: Company, since: datetime, mode: str) -> FetchResult:
         connector_type = str(company.connector.get("type", ""))
@@ -105,14 +123,21 @@ class JobMonitor:
         overlap = timedelta(hours=float(filters.get("incremental_overlap_hours", 6)))
         company_since: Dict[str, datetime] = {}
         company_modes: Dict[str, str] = {}
+        profile_backfill_company_ids = set()
         for company in enabled:
             connector_type = str(company.connector.get("type", ""))
             previous_company_success = self.state.last_successful_company_run_started_at(
                 company.id, connector_type
             )
-            if mode == "initial" or previous_company_success is None:
+            previous_profile_fingerprint = self.state.company_profile_fingerprint(
+                company.id, connector_type
+            )
+            profile_changed = previous_profile_fingerprint != self.profile_fingerprint
+            if mode == "initial" or previous_company_success is None or profile_changed:
                 company_since[company.id] = initial_since
                 company_modes[company.id] = "initial"
+                if profile_changed:
+                    profile_backfill_company_ids.add(company.id)
             else:
                 company_since[company.id] = previous_company_success - overlap
                 company_modes[company.id] = "incremental"
@@ -231,7 +256,11 @@ class JobMonitor:
                     job_key, actual_event = self.state.upsert_job(
                         run_id, job, accepted=decision.accepted, emitted=False, seen_at=now
                     )
-                    job.event_type = provisional_event if provisional_event == "reposted" else actual_event
+                    job.event_type = (
+                        provisional_event
+                        if provisional_event in {"new", "reposted"}
+                        else actual_event
+                    )
                     should_emit = (
                         accepted
                         and job_key not in emitted_keys
@@ -257,6 +286,9 @@ class JobMonitor:
                 "started_at": now.isoformat(),
                 "since": since.isoformat(),
                 "cursor_strategy": "per_company",
+                "profile_revision": self.profile_revision,
+                "profile_fingerprint": self.profile_fingerprint,
+                "profile_backfill_companies": len(profile_backfill_company_ids),
                 "companies_configured": len(self.companies),
                 "companies_enabled": len(enabled),
                 **stats,
@@ -280,9 +312,25 @@ class JobMonitor:
                 max_rejections_per_company=int(reporting.get("max_rejections_per_company", 50)),
             )
             metadata["run_dir"] = str(run_dir)
-            for job in emitted:
-                self.state.mark_emitted(run_id, job.job_key, now)
-            self.state.finish_run(run_id, status, stats)
+            completed_profile_sources = [
+                (result.company_id, result.source)
+                for result in results
+                if (
+                    result.company_id in company_since
+                    and not result.error
+                    and not result.skipped
+                    and result.cursor_complete
+                )
+            ]
+            self.state.finalize_usable_run(
+                run_id,
+                status,
+                stats,
+                [job.job_key for job in emitted],
+                now,
+                completed_profile_sources,
+                self.profile_fingerprint,
+            )
             return metadata
         except Exception as exc:
             fatal_error = f"{type(exc).__name__}: {exc}"

@@ -1,38 +1,56 @@
 {
   "schema_version": 1,
   "candidate": {
-    "name": "Prudhvi Yalamanchili",
-    "location": "Redmond, WA",
-    "years_of_relevant_us_experience": 3.5,
-    "current_level": "SWE II / SDE II / mid-level",
+    "profile_revision": "2026-08-25-master-resume-v1",
+    "experience_as_of": "2026-08-26",
+    "years_of_relevant_us_experience": 3.75,
+    "highest_degree": "masters",
+    "current_level": "Software Engineer / SWE II / SDE II / mid-level",
     "selective_senior_policy": "Keep Senior only when the posting states an experience floor no higher than 5 years.",
     "target_roles": [
       "Software Engineer II",
       "Software Development Engineer II",
       "Backend Engineer",
+      "Java Backend Engineer",
+      "Python Backend / API Engineer",
       "Distributed Systems Engineer",
       "Platform Engineer",
       "Infrastructure Engineer",
-      "Security Engineer",
+      "Security Software Engineer",
+      "DDoS / Abuse Prevention Software Engineer",
       "Site Reliability Engineer",
       "Production Engineer",
-      "Cloud Software Engineer"
+      "Cloud Software Engineer",
+      "Observability / Telemetry Platform Engineer",
+      "AI Platform Backend Engineer (secondary, project-backed)"
     ],
     "core_evidence": [
+      "Current Capital One contract: Java/Spring Boot APIs and Python/FastAPI services",
       "AWS Shield / DDoS protection",
       "Java and Spring Boot backend services",
-      "Kinesis and Kafka streaming",
+      "Kinesis telemetry pipelines and event-driven systems",
       "DynamoDB and RDS data modeling",
       "multi-region AWS systems",
       "distributed systems and high-throughput telemetry",
       "security, incident response, and on-call ownership",
-      "AWS CDK, ECS, Docker, observability"
+      "AWS CDK infrastructure as code"
+    ],
+    "secondary_project_evidence": [
+      "Java 21 / Spring WebFlux reverse proxy and L7 DDoS / bot mitigation",
+      "Redis/Lua rate limiting, NGINX, circuit breakers, and load/latency testing",
+      "Prometheus, Grafana, OpenTelemetry, and Jaeger observability",
+      "Spring AI, RAG, MCP, pgvector, and evidence-grounded incident triage",
+      "Kafka/MSK, GraphQL, ECS, and Docker appear as skills or project-adjacent evidence without a claimed production duration"
     ]
   },
   "filters": {
     "lookback_days": 7,
-    "min_match_score": 62,
+    "min_match_score": 55,
     "min_sponsorship_score": 0.55,
+    "p1_match_score": 70,
+    "p1_min_sponsorship_score": 0.60,
+    "p0_match_score": 82,
+    "p0_min_sponsorship_score": 0.75,
     "max_required_years": 5,
     "senior_max_required_years": 5,
     "exclude_explicit_no_sponsorship": true,
@@ -41,34 +59,72 @@
     "date_confidence_allowed": ["high", "medium_high", "medium"]
   },
   "matching": {
-    "target_title_regex": "\\b(software|backend|back-end|platform|infrastructure|site reliability|sre|production engineer|security engineer|cloud engineer|distributed systems?|systems engineer|devops)\\b",
-    "irrelevant_title_regex": "\\b(front[ -]?end|ui engineer|UI|ux|mobile|ios|android|embedded|firmware|hardware|electrical engineer|silicon bring[- ]?up|quantum|simulation|machine learning|ML|AI engineer|data engineer|data science|data scientist|data analyst|business analyst|qa|quality assurance|test engineer|testing|validation|technical escalations?|support engineer|product manager|program manager|project manager|sales engineer|solutions architect|customer support|technical support|designer|research scientist)\\b",
-    "junior_title_regex": "\\b(new grad(uate)?|university grad|campus|early career|entry[ -]level|junior|jr\\.?|associate)\\b",
-    "too_senior_title_regex": "\\b(staff|principal|distinguished|fellow|chief|architect|lead)\\b",
-    "selective_senior_title_regex": "\\b(senior|sr\\.?|software engineer iii|sde iii)\\b",
-    "p0_specialty_title_regex": "backend|platform|infrastructure|distributed|security|site reliability|\\bSRE\\b|cloud|AWS|Kinesis|Kafka|DynamoDB|database|storage|resilien|network",
+    "max_title_score": 30,
+    "max_skill_score": 42,
+    "target_title_regex": "\\b(?:SDE|SWE|SRE|MTS)\\b|\\bmember of technical staff\\b|\\bsoftware (?:(?:development|dev) )?(?:engineer|developer)\\b|\\bsystems development engineer\\b|\\b(?:security|cloud|platform|infrastructure) development engineer\\b|\\b(?:backend|back-end|backend platform|cloud platform|cloud infrastructure|data platform|developer platform|security platform|platform reliability|application security|network security|platform|infrastructure|site reliability|reliability|production|security|cloud|distributed systems?|systems software|software systems|devops|devsecops|api|java|python|observability|telemetry) (?:software )?(?:engineer|developer)\\b",
+    "irrelevant_title_regex": "\\b(front[ -]?end|ui engineer|UI|ux|mobile|ios|android|robotics|embedded|firmware|hardware|electrical engineer|silicon bring[- ]?up|quantum|simulation|machine learning(?![ /-]*(?:platform|infrastructure|systems|serving|runtime|reliability|security))|ML engineer|AI engineer|AI systems engineer|applied AI(?![ /-]*(?:platform|infrastructure|systems))|deep learning|edge AI|physical.{0,20}AI|data engineer|data science|data scientist|data analyst|business analyst|full[ -]?stack|product engineer|SDET|software (?:development )?engineer (?:in|for) test|(?:software )?quality engineer|qa|quality assurance|test engineer|test automation|testing|validation engineer|(?:test|testing|QA|quality|verification|validation|V&V) (?:platform|infrastructure|systems?)|build (?:&|and) test|(?:GRC|compliance|risk) (?:analyst|engineer|specialist|manager)|(?:analyst|engineer|specialist|manager)[, /-]+(?:GRC|compliance|risk)|SOC|penetration test|pentest|red team|offensive security|security analyst|client platform security|endpoint security|corporate security|security engineer.{0,30}privacy|security engineer.{0,40}(?:incident response|detection and response)|console frameworks?|AI devops|DRTM|secure launch|customer reliability|support reliability|customer success|technical escalations?|support engineer|(?:solutions?|sales) engineer|consultant|(?:platform|cloud|infrastructure|security|systems?) specialist|recruiter|product manager|program manager|project manager|solutions architect|customer support|technical support|designer|applied scientist|research engineer|research scientist)\\b",
+    "junior_title_regex": "\\b(new grad(uate)?|recent grad(?:uate)?|university grad|graduate|campus|early career|(?:early|emerging|entry) talent|entry[ -]level|junior|jr\\.?|associate|trainee|AMTS)\\b",
+    "early_career_metadata_regex": "\\b(university recruiting|campus programs?|early careers?|student programs?|new grad(?:uate)?|university grad(?:uate)?|entry[ -]level)\\b",
+    "irrelevant_department_regex": "\\b(iOS|Android|mobile|front[ -]?end|UI|UX|user interface|quality (?:assurance|engineering)|QA|test(?:ing)? engineering|software test|validation|verification|V&V|customer engineering|professional services|sales engineering|solutions engineering|technical support|customer support|developer relations|data science|machine learning|artificial intelligence|ML|AI|robotics|hardware|firmware|embedded)\\b",
+    "secondary_platform_department_regex": "^(?=.*\\b(?:machine learning|artificial intelligence|ML|AI)\\b)(?=.*\\b(?:platform|infrastructure|systems?|serving|runtime|reliability|security)\\b).*$",
+    "too_senior_title_regex": "\\b(staff|principal|distinguished|fellow|chief|architect|lead|LMTS|PMTS|DMTS)\\b|\\b(?:master|advisory|expert)\\s+(?:software\\s+)?(?:engineer|developer)\\b|\\b(?:engineer|developer)\\s*[,/-]?\\s*(?:master|advisory|expert)\\b",
+    "selective_senior_title_regex": "\\b(senior|sr\\.?|senior associate|principal associate|senior member of technical staff|SMTS|member of technical staff|MTS|(?:software (?:(?:development|dev|developer) )?engineer|software developer|systems development engineer|(?:security|cloud|platform|infrastructure) development engineer|sde|swe|sre|site reliability engineer|(?:backend|back-end|platform|infrastructure|security|systems?|production|cloud|reliability|devops|devsecops|observability|telemetry|data|api|java|python) (?:software )?(?:engineer|developer))\\s*[,/\\-]?\\s*(?:level\\s*)?(?:iii|3))\\b",
+    "core_professional_evidence_regex": "\\b(?:Java|JVM|Spring(?: Boot)?|Python|FastAPI|AWS|Amazon Web Services|Kinesis|DynamoDB|RDS|DDoS|Shield|multi[- ]region|distributed systems?|high[- ]throughput|security telemetry|threat intelligence|network security|application security|traffic mitigation|rate limit|abuse prevention|backend|microservices?|REST(?:ful)? APIs?)\\b",
+    "operations_title_regex": "\\b(?:systems?|cloud|security|infrastructure|platform|site reliability|reliability|production|observability|telemetry) (?:software )?(?:engineer|developer)\\b|\\b(?:SRE|DevOps|DevSecOps)\\b",
+    "software_development_evidence_regex": "\\b(?:software|backend|Java|JVM|Python|Spring|FastAPI|microservices?|REST(?:ful)? APIs?|API development|distributed systems?|programming|coding|write code|develop(?:ing|ment)? services?|systems development|developer platform|infrastructure[- ]as[- ]code|IaC|CDK|software automation)\\b",
+    "aligned_data_engineer_title_regex": "\\bdata engineer\\b.{0,45}\\b(?:streaming|real[- ]time|telemetry|distributed)\\b|\\b(?:streaming|real[- ]time|telemetry|distributed)\\b.{0,45}\\bdata engineer\\b",
+    "secondary_platform_title_regex": "^(?=.*\\b(?:AI|artificial intelligence|machine learning|ML|GenAI|MLOps|model serving|model runtime|LLMs?)\\b)(?=.*\\b(?:backend|platform|infrastructure|serving|runtime|reliability|security)\\b)(?=.*\\b(?:software|backend|platform|infrastructure|reliability|security) (?:software )?(?:engineer|developer)\\b).*$",
+    "unsupported_specialization_evidence_regex": "\\A(?:(?=[\\s\\S]*\\b(?:GPU|TPU|Trainium|specialized\\s+(?:AI\\s+)?accelerators?)\\b)(?=[\\s\\S]*\\b(?:compilers?|kernels?|CUDA|LLVM|MLIR|XLA|Triton)\\b)|(?=[\\s\\S]*\\b(?:machine learning|ML)\\s+models?\\b)(?=[\\s\\S]*\\b(?:training|retraining|inference|model serving)\\b)(?=[\\s\\S]*\\b(?:computer vision|model lifecycle|model deployment|applied scientists?)\\b)|(?=[\\s\\S]*\\bSAP\\b)(?=[\\s\\S]*\\b(?:ABAP|S/4HANA|SAP HANA|BTP|CDS views?)\\b)|(?=[\\s\\S]*\\b(?:multimodal|VLM|pre[- ]training|post[- ]training|synthetic data)\\b)(?=[\\s\\S]*\\b(?:training data|LLMs?|foundation models?)\\b)|(?=[\\s\\S]*\\b(?:KVM|libvirt|QEMU)\\b)(?=[\\s\\S]*\\b(?:Ceph|LVM|NFS|iSCSI|FC|NVMeoF|GFS2)\\b)|(?=[\\s\\S]*\\b(?:AppDynamics|Control-M|InfluxDB)\\b)(?=[\\s\\S]*\\b(?:Oracle|RHEL|Red Hat Enterprise Linux)\\b)|[\\s\\S]*\\b(?:experience|proficiency)\\s+(?:(?:in|with)\\s+)?C\\+\\+\\s+(?:is\\s+)?required\\b|[\\s\\S]*\\b\\d+\\+?\\s+years?['’]?\\s+experience\\s+building\\s+backend\\s+APIs?\\s+for\\s+mobile\\s+apps?\\b|[\\s\\S]*\\bexperience\\s+(?:in|with)\\s+(?:the\\s+)?games?\\s+industry\\b|[\\s\\S]*\\b(?:advanced|expert)\\s+(?:Python\\s+and\\s+)?\\.NET\\s+skills\\b)",
+    "additional_unsupported_specialization_evidence_regexes": [
+      "[\\s\\S]*\\b(?:looking\\s+for|seeking)\\s+(?:an?\\s+)?full[- ]stack\\s+(?:software\\s+)?engineer\\b",
+      "[\\s\\S]*\\b(?:develop|build)\\w*\\s+(?:products?|applications?)\\s+primarily\\s+using\\b[\\s\\S]{0,100}\\b(?:Java|Python)\\b[\\s\\S]{0,30}\\bback[- ]?end\\b[\\s\\S]{0,80}\\b(?:React(?:\\.js)?|JavaScript|TypeScript)\\b[\\s\\S]{0,40}\\bfront[- ]?end\\b",
+      "(?=[\\s\\S]*\\bprivacy[- ]preserving\\s+analytics?\\b)(?=[\\s\\S]*\\bdeploying\\s+AI/ML\\s+solutions?\\b)",
+      "(?=[\\s\\S]*\\bRequired Skills and Experience\\b)(?=[\\s\\S]*\\b(?:OAuth\\s*2\\.0|OpenID Connect|JWTs?|PKCE)\\b)(?=[\\s\\S]*\\b(?:gRPC|Protocol Buffers)\\b)",
+      "(?=[\\s\\S]*\\b(?:data-driven systems|ML-powered features|A/B experimentation platforms)\\b)(?=[\\s\\S]*\\bbackend APIs?\\s*\\(e\\.g\\.,?\\s*gRPC\\))(?=[\\s\\S]*\\b(?:Flink|Spark)\\b)",
+      "(?=[\\s\\S]*\\bRequired skills\\b)(?=[\\s\\S]*\\b(?:MFA|SSO|OAuth\\s*2\\.0)\\b)(?=[\\s\\S]*\\bworking knowledge of PHP\\b)",
+      "(?=[\\s\\S]*\\b(?:HLS|HTTP Live Streaming|MPEG-DASH|MP4)\\b)(?=[\\s\\S]*\\b(?:H\\.264|H\\.265|HEVC|VP9|AV1)\\b)",
+      "[\\s\\S]*\\b3\\+\\s+years?\\s+of\\s+relevant\\s+industry\\s+experience\\s*\\([^)]*(?:Payments|Fintech)[^)]*\\)\\s+as\\s+(?:a\\s+)?backend software engineer\\b",
+      "[\\s\\S]*\\bExperience\\s+leading\\s+design,\\s+implementation,\\s+and\\s+deployment\\s+of\\s+one\\s+or\\s+more\\s+high\\s+scale,\\s+cross-functional\\s+payment\\s+systems\\b",
+      "(?=[\\s\\S]*\\bdeep expertise in systems-level performance analysis, profiling\\b)(?=[\\s\\S]*\\btrack record of reducing infrastructure costs\\b)"
+    ],
+    "p0_specialty_title_regex": "distributed|DDoS|Shield|Kinesis|DynamoDB|telemetry|observability|resilien|streaming|multi[- ]region|data plane|control plane|abuse|\\bbots?\\b|rate limit|security platform|backend platform|cloud platform",
+    "secondary_specialty_title_regex": "\\b(AI|artificial intelligence|machine learning|ML|deep learning|generative AI|GenAI|MLOps|model serving|model runtime|LLMs?)\\b",
     "title_score_rules": [
-      {"label": "software engineering", "weight": 18, "regex": "\\bsoftware (development )?engineer\\b|\\bSDE\\b"},
-      {"label": "backend", "weight": 12, "regex": "backend|back-end"},
-      {"label": "platform/infrastructure/systems", "weight": 12, "regex": "platform|infrastructure|distributed|systems"},
-      {"label": "security/SRE/production", "weight": 14, "regex": "security|site reliability|\\bSRE\\b|production engineer"}
+      {"label": "target engineering role", "weight": 18, "regex": "\\bsoftware (?:(?:development|dev|developer) )?engineer\\b|\\bsoftware developer\\b|\\b(?:SDE|SWE)\\b|\\bsystems development engineer\\b|\\b(?:security|cloud|platform|infrastructure) development engineer\\b|\\b(?:member of technical staff|MTS)\\b|\\bdata engineer\\b.{0,45}\\b(?:streaming|real[- ]time|telemetry|distributed)\\b|\\b(?:streaming|real[- ]time|telemetry|distributed)\\b.{0,45}\\bdata engineer\\b|\\b(?:backend|back-end|platform|infrastructure|systems?|security|reliability|production|cloud|API|Java|Python|observability|telemetry) (?:software )?(?:engineer|developer)\\b|\\b(?:SRE|DevOps|DevSecOps)\\b"},
+      {"label": "target role family", "weight": 10, "regex": "backend|back-end|platform|infrastructure|distributed|systems|security|site reliability|\\bSRE\\b|production engineer|cloud|reliability|observability|telemetry|\\bAPI\\b"},
+      {"label": "exact resume domain", "weight": 12, "regex": "DDoS|Shield|Kinesis|DynamoDB|telemetry|control plane|data plane|resilien|\\bbots?\\b|abuse|rate limit"}
     ],
     "skill_groups": [
-      {"label": "backend services", "weight": 12, "patterns": ["\\bbackend\\b", "microservices?", "REST API", "service[- ]to[- ]service"]},
-      {"label": "distributed systems", "weight": 14, "patterns": ["distributed systems?", "high[- ]throughput", "large[- ]scale", "scalab"]},
-      {"label": "Java/Spring", "weight": 12, "patterns": ["\\bJava\\b", "Spring Boot", "Spring WebFlux", "\\bJVM\\b"]},
-      {"label": "AWS/cloud", "weight": 11, "patterns": ["\\bAWS\\b", "Amazon Web Services", "cloud infrastructure", "cloud platform"]},
-      {"label": "streaming/messaging", "weight": 9, "patterns": ["\\bKafka\\b", "\\bKinesis\\b", "event[- ]driven", "stream processing", "\\bSQS\\b"]},
-      {"label": "datastores", "weight": 7, "patterns": ["DynamoDB", "\\bRDS\\b", "PostgreSQL", "NoSQL", "Redis", "data model"]},
-      {"label": "security/DDoS", "weight": 12, "patterns": ["security", "DDoS", "threat", "abuse", "bot", "WAF", "network security"]},
-      {"label": "platform/infrastructure", "weight": 10, "patterns": ["platform engineering", "infrastructure", "Kubernetes", "Terraform", "CDK", "ECS"]},
-      {"label": "SRE/operations", "weight": 9, "patterns": ["site reliability", "\\bSRE\\b", "on[- ]call", "incident", "reliability", "SLO"]},
-      {"label": "observability", "weight": 5, "patterns": ["observability", "CloudWatch", "Prometheus", "Grafana", "OpenTelemetry"]},
-      {"label": "multi-region", "weight": 5, "patterns": ["multi[- ]region", "regional", "global infrastructure", "disaster recovery"]}
+      {"label": "backend/API services", "weight": 8, "patterns": ["\\bbackend\\b", "microservices?", "REST(?:ful)? API", "service[- ]to[- ]service", "server[- ]side", "GraphQL", "JPA", "Hibernate"]},
+      {"label": "distributed systems/performance", "weight": 10, "patterns": ["distributed systems?", "high[- ]throughput", "large[- ]scale", "high[- ]scale", "fault[- ]tolerant", "backpressure", "low[- ]latency", "high[- ]performance", "performance engineering", "load test", "latency benchmark", "capacity planning", "concurren", "bounded queues?"]},
+      {"label": "Java/Spring", "weight": 10, "patterns": ["\\bJava\\b", "Spring Boot", "Spring WebFlux", "Spring Security", "\\bJVM\\b"]},
+      {"label": "Python/FastAPI", "weight": 5, "patterns": ["\\bPython\\b", "FastAPI"]},
+      {"label": "AWS/cloud", "weight": 8, "patterns": ["\\bAWS\\b", "Amazon Web Services", "AWS CDK", "cloud infrastructure", "cloud platform", "cloud[- ]native", "\\bIAM\\b"]},
+      {"label": "streaming/messaging", "weight": 7, "patterns": ["\\bKafka\\b", "\\bMSK\\b", "\\bKinesis\\b", "event[- ]driven", "stream processing", "message queues?", "pub[- /]?sub", "\\bSQS\\b", "\\bSNS\\b", "EventBridge"]},
+      {"label": "datastores", "weight": 6, "patterns": ["DynamoDB", "\\bRDS\\b", "PostgreSQL", "pgvector", "vector database", "NoSQL", "Redis", "ElastiCache", "data model", "key[- ]value"]},
+      {"label": "security/DDoS", "weight": 10, "patterns": ["security engineering", "security telemetry", "DDoS", "threat", "abuse", "\\bbots?\\b", "network security", "application security", "threat intelligence", "rate limit", "traffic mitigation"]},
+      {"label": "platform/infrastructure", "weight": 7, "patterns": ["platform engineering", "developer platform", "infrastructure", "infrastructure[- ]as[- ]code", "\\bIaC\\b", "\\bCDK\\b", "\\bECS\\b", "Docker", "containers?", "\\bLinux\\b", "NGINX", "reverse proxy"]},
+      {"label": "SRE/operations", "weight": 7, "patterns": ["site reliability", "\\bSRE\\b", "on[- ]call", "incident (?:response|management)", "production incidents?", "reliability engineering", "\\bSLOs?\\b", "runbooks?", "circuit breakers?", "safe degradation", "operational excellence"]},
+      {"label": "observability", "weight": 4, "patterns": ["observability", "CloudWatch", "Prometheus", "Grafana", "OpenTelemetry", "Jaeger", "distributed tracing", "telemetry"]},
+      {"label": "multi-region", "weight": 4, "patterns": ["multi[- ]region", "cross[- ]region", "geo[- ]distributed", "global infrastructure"]},
+      {"label": "AI application infrastructure", "weight": 3, "patterns": ["Spring AI", "retrieval[- ]augmented", "\\bRAG\\b", "Model Context Protocol", "\\bMCP\\b", "\\bLLMs?\\b", "generative AI", "AI platform", "agentic"]}
+    ],
+    "secondary_technology_max_required_years": 2,
+    "secondary_technology_experience_groups": [
+      {"label": "Python/FastAPI", "regex": "\\b(?:Python|FastAPI)\\b", "max_required_years": 1, "core_alternative_regex": "\\b(?:Java|Spring)\\b.{0,35}\\b(?:or|/)\\b.{0,20}\\b(?:Python|FastAPI)\\b|\\b(?:Python|FastAPI)\\b.{0,35}\\b(?:or|/)\\b.{0,20}\\b(?:Java|Spring)\\b"},
+      {"label": "Kafka/MSK", "regex": "\\b(?:Kafka|MSK)\\b", "max_required_years": 0, "core_alternative_regex": "\\bKinesis\\b.{0,35}\\b(?:or|/)\\b.{0,20}\\b(?:Kafka|MSK)\\b|\\b(?:Kafka|MSK)\\b.{0,35}\\b(?:or|/)\\b.{0,20}\\bKinesis\\b"},
+      {"label": "GraphQL", "regex": "\\bGraphQL\\b", "max_required_years": 0, "core_alternative_regex": "\\b(?:REST(?:ful)?|HTTP)\\s*APIs?\\b.{0,35}\\b(?:or|/)\\b.{0,20}\\bGraphQL\\b|\\bGraphQL\\b.{0,35}\\b(?:or|/)\\b.{0,20}\\b(?:REST(?:ful)?|HTTP)\\s*APIs?\\b"},
+      {"label": "Redis/ElastiCache", "regex": "\\b(?:Redis|ElastiCache)\\b", "max_required_years": 0, "core_alternative_regex": "\\b(?:DynamoDB|RDS)\\b.{0,35}\\b(?:or|/)\\b.{0,20}\\b(?:Redis|ElastiCache)\\b|\\b(?:Redis|ElastiCache)\\b.{0,35}\\b(?:or|/)\\b.{0,20}\\b(?:DynamoDB|RDS)\\b"},
+      {"label": "Docker/ECS", "regex": "\\b(?:Docker|ECS)\\b", "max_required_years": 0},
+      {"label": "specialized observability stack", "regex": "\\b(?:Prometheus|Grafana|OpenTelemetry|Jaeger)\\b", "max_required_years": 0, "core_alternative_regex": "\\bCloudWatch\\b.{0,35}\\b(?:or|/)\\b.{0,20}\\b(?:Prometheus|Grafana|OpenTelemetry|Jaeger)\\b|\\b(?:Prometheus|Grafana|OpenTelemetry|Jaeger)\\b.{0,35}\\b(?:or|/)\\b.{0,20}\\bCloudWatch\\b"},
+      {"label": "NGINX", "regex": "\\bNGINX\\b", "max_required_years": 0},
+      {"label": "AI/ML application infrastructure", "regex": "\\b(?:AI|ML|RAG|LLMs?|MCP|Model Context Protocol|machine learning|artificial intelligence|generative AI|GenAI|MLOps)\\b", "max_required_years": 0},
+      {"label": "frontend/mobile application stack", "regex": "\\b(?:Angular|React(?:\\.js)?|Vue(?:\\.js)?|JavaScript|TypeScript|Node\\.js|iOS|Android|Swift|Kotlin)\\b", "max_required_years": 0, "core_alternative_regex": "\\b(?:Java|Spring|Python|FastAPI)\\b.{0,45}\\b(?:or|/)\\b.{0,30}\\b(?:Angular|React(?:\\.js)?|Vue(?:\\.js)?|JavaScript|TypeScript|Node\\.js|iOS|Android|Swift|Kotlin)\\b|\\b(?:Angular|React(?:\\.js)?|Vue(?:\\.js)?|JavaScript|TypeScript|Node\\.js|iOS|Android|Swift|Kotlin)\\b.{0,45}\\b(?:or|/)\\b.{0,30}\\b(?:Java|Spring|Python|FastAPI)\\b"},
+      {"label": ".NET/C#", "regex": "(?:\\bC#(?!\\w)|(?<!\\w)\\.NET\\b|\\bASP\\.NET\\b)", "max_required_years": 0, "core_alternative_regex": "\\b(?:Java|Spring|Python|FastAPI)\\b.{0,45}\\b(?:or|/)\\b.{0,30}(?:\\bC#(?!\\w)|(?<!\\w)\\.NET\\b|\\bASP\\.NET\\b)|(?:\\bC#(?!\\w)|(?<!\\w)\\.NET\\b|\\bASP\\.NET\\b).{0,45}\\b(?:or|/)\\b.{0,30}\\b(?:Java|Spring|Python|FastAPI)\\b"}
     ]
   },
   "network": {
-    "user_agent": "PrudhviH1BJobMonitor/1.0 (personal job discovery; read-only; low-rate)",
+    "user_agent": "H1BJobMonitor/1.0 (personal job discovery; read-only; low-rate)",
     "timeout_seconds": 25,
     "min_interval_seconds_per_host": 0.8,
     "max_retries": 3,
@@ -78,6 +134,6 @@
   "reporting": {
     "include_rejections_in_audit": true,
     "max_rejections_per_company": 50,
-    "html_title": "Prudhvi's verified H-1B job matches"
+    "html_title": "Verified H-1B job matches"
   }
 }
