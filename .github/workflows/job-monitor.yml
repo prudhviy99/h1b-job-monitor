@@ -3,7 +3,13 @@ name: H-1B job monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 7,19 * * *"
+    - cron: "17 7 * * *"
+      timezone: "America/Los_Angeles"
+    - cron: "47 9 * * *"
+      timezone: "America/Los_Angeles"
+    - cron: "17 19 * * *"
+      timezone: "America/Los_Angeles"
+    - cron: "47 21 * * *"
       timezone: "America/Los_Angeles"
 
 permissions: {}
@@ -18,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
+      actions: read
       contents: read
       issues: write
     steps:
@@ -31,8 +38,23 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Keep one crawl per morning or evening window
+        id: cadence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE_EXPRESSION: ${{ github.event.schedule }}
+        run: |
+          python scripts/schedule_guard.py \
+            --event-name "$EVENT_NAME" \
+            --schedule "$SCHEDULE_EXPRESSION" \
+            --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" \
+            --output "$GITHUB_OUTPUT"
+
       - name: Restore persistent discovery state
         id: state-restore
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: data/jobs.sqlite
@@ -42,7 +64,7 @@ jobs:
 
       - name: Bootstrap state when no cache exists
         id: bootstrap
-        if: ${{ hashFiles('data/jobs.sqlite') == '' }}
+        if: ${{ steps.cadence.outputs.should_run == 'true' && hashFiles('data/jobs.sqlite') == '' }}
         run: |
           python scripts/bootstrap_cloud_state.py \
             --seed seed/jobs.sqlite.gz \
@@ -51,12 +73,14 @@ jobs:
 
       - name: Validate configuration and tests
         id: validate
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         run: |
           PYTHONPATH=src python -m h1b_job_monitor validate-config
           PYTHONPATH=src python -m unittest discover -s tests -v
 
       - name: Crawl official career sources
         id: crawl
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         continue-on-error: true
         run: |
           set +e
@@ -68,7 +92,7 @@ jobs:
 
       - name: Checkpoint persistent state
         id: checkpoint
-        if: ${{ always() && hashFiles('data/jobs.sqlite') != '' && hashFiles('reports/latest.json') != '' }}
+        if: ${{ always() && steps.cadence.outputs.should_run == 'true' && hashFiles('data/jobs.sqlite') != '' && hashFiles('reports/latest.json') != '' }}
         run: |
           python - <<'PY'
           import sqlite3
@@ -87,7 +111,7 @@ jobs:
 
       - name: Build workflow summary
         id: summary
-        if: ${{ always() }}
+        if: ${{ always() && steps.cadence.outputs.should_run == 'true' }}
         env:
           MONITOR_OUTCOME: ${{ steps.crawl.outcome }}
           MONITOR_EXIT_CODE: ${{ steps.crawl.outputs.exit_code }}
@@ -111,7 +135,7 @@ jobs:
 
       - name: Notify through deduplicated GitHub issues
         id: notify
-        if: ${{ always() && steps.summary.outcome == 'success' }}
+        if: ${{ always() && steps.cadence.outputs.should_run == 'true' && steps.summary.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
           ALERT_KIND: ${{ steps.summary.outputs.alert_kind }}
@@ -186,7 +210,7 @@ jobs:
 
       - name: Save persistent discovery state
         id: state-save
-        if: ${{ always() && steps.checkpoint.outcome == 'success' && steps.summary.outcome == 'success' && steps.notify.outcome == 'success' }}
+        if: ${{ always() && steps.cadence.outputs.should_run == 'true' && steps.checkpoint.outcome == 'success' && steps.summary.outcome == 'success' && steps.notify.outcome == 'success' }}
         continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -195,7 +219,7 @@ jobs:
 
       - name: Upload reports and health log
         id: upload
-        if: ${{ always() }}
+        if: ${{ always() && steps.cadence.outputs.should_run == 'true' }}
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -208,7 +232,7 @@ jobs:
 
       - name: Notify if persistence or report upload failed
         id: infrastructure-notify
-        if: ${{ always() && (steps.state-save.outcome == 'failure' || steps.upload.outcome == 'failure') }}
+        if: ${{ always() && steps.cadence.outputs.should_run == 'true' && (steps.state-save.outcome == 'failure' || steps.upload.outcome == 'failure') }}
         env:
           GH_TOKEN: ${{ github.token }}
           STATE_SAVE_OUTCOME: ${{ steps.state-save.outcome }}
@@ -253,7 +277,7 @@ jobs:
 
       - name: Propagate any failure
         if: >-
-          ${{ always() && (
+          ${{ always() && steps.cadence.outputs.should_run == 'true' && (
             steps.state-restore.outcome == 'failure' ||
             steps.bootstrap.outcome == 'failure' ||
             steps.validate.outcome == 'failure' ||
