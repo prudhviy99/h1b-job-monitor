@@ -30,6 +30,12 @@ EVENING_SCHEDULES = {
     "47 4 * * *",
     "47 5 * * *",
 }
+RETIRED_TIMEZONE_SCHEDULES = {
+    "17 7 * * *",
+    "47 9 * * *",
+    "17 19 * * *",
+    "47 21 * * *",
+}
 REPORT_ARTIFACT_PREFIX = "h1b-job-report-"
 
 
@@ -105,6 +111,8 @@ def cadence_decision(
 ) -> Tuple[bool, str]:
     if event_name != "schedule":
         return True, "Manual run: cadence guard allows the crawl."
+    if normalize_schedule(schedule) in RETIRED_TIMEZONE_SCHEDULES:
+        return False, "Retired timezone trigger arrived from GitHub's queue; skipping."
     current_time = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     bounds = window_bounds(schedule, current_time)
     if bounds is None:
@@ -205,6 +213,13 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.event_name != "schedule":
+        execute, reason = cadence_decision(
+            args.event_name,
+            args.schedule,
+            args.run_id,
+            [],
+        )
+    elif normalize_schedule(args.schedule) in RETIRED_TIMEZONE_SCHEDULES:
         execute, reason = cadence_decision(
             args.event_name,
             args.schedule,

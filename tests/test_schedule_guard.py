@@ -96,6 +96,12 @@ class ScheduleGuardTests(unittest.TestCase):
         self.assertTrue(should_run("schedule", "17 14 * * *", "2", crawls, now))
         self.assertTrue(should_run("schedule", "* * * * *", "3", crawls, now))
 
+    def test_retired_timezone_schedule_is_always_skipped(self):
+        now = datetime(2026, 8, 29, 5, 0, tzinfo=timezone.utc)
+        decision, reason = cadence_decision("schedule", "47 21 * * *", "2", [], now)
+        self.assertFalse(decision)
+        self.assertIn("Retired", reason)
+
 
 if __name__ == "__main__":
     unittest.main()
