@@ -4,7 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from .base import Connector, register
 from ..http import HttpClient, HttpError
@@ -24,6 +24,16 @@ def _identifier(value: Any) -> str:
     if isinstance(value, dict):
         return str(value.get("value") or value.get("name") or value.get("@id") or "")
     return str(value or "")
+
+
+def _reviewed_sitemap_url(url: str, upgrade_http_to_https: bool) -> str:
+    """Upgrade sitemap-provided HTTP links only for an explicitly reviewed source."""
+    if not upgrade_http_to_https:
+        return url
+    parts = urlsplit(url)
+    if parts.scheme.casefold() != "http":
+        return url
+    return urlunsplit(("https", parts.netloc, parts.path, parts.query, parts.fragment))
 
 
 def _terminal_gone_status(exc: HttpError) -> Optional[int]:
@@ -53,6 +63,7 @@ class SitemapConnector(Connector):
         access = config.get("access_policy", "strict")
         max_sitemaps = int(config.get("max_sitemaps", 30))
         max_detail = int(config.get("max_detail_requests", 80))
+        upgrade_http_to_https = bool(config.get("upgrade_http_to_https", False))
         url_pattern = re.compile(config.get("job_url_regex", r"/jobs?/|/careers?/"), re.I)
         include_pattern = re.compile(config["url_include_regex"], re.I) if config.get("url_include_regex") else None
         exclude_pattern = re.compile(config["url_exclude_regex"], re.I) if config.get("url_exclude_regex") else None
@@ -95,14 +106,18 @@ class SitemapConnector(Connector):
             if root_kind == "sitemapindex":
                 for node in list(root):
                     values = _children_text(node)
-                    location = values.get("loc")
+                    location = _reviewed_sitemap_url(
+                        values.get("loc", ""), upgrade_http_to_https
+                    )
                     modified = parse_datetime(values.get("lastmod"))
                     if location and (modified is None or modified >= since - timedelta(days=2)):
                         queue.append(location)
                 continue
             for node in list(root):
                 values = _children_text(node)
-                location = values.get("loc")
+                location = _reviewed_sitemap_url(
+                    values.get("loc", ""), upgrade_http_to_https
+                )
                 # Match against the complete canonical URL. This supports strict
                 # host-and-path allowlists as well as the default path expression.
                 if not location or not url_pattern.search(location):

@@ -1830,6 +1830,7 @@
         "url_exclude_regex": "(?:^|[-/])(?:intern(?:ship)?|new-grad|graduate|student|manager|director|staff|principal|distinguished|fellow|chief|architect|lead)(?:[-/]|$)",
         "access_policy": "strict",
         "allow_lastmod_as_posted_date": false,
+        "upgrade_http_to_https": true,
         "max_sitemaps": 10,
         "max_detail_requests": 80,
         "crawl_delay_seconds": 10,

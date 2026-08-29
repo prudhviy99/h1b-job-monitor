@@ -309,6 +309,30 @@ class ConnectorTests(unittest.TestCase):
         self.assertEqual(len(result.jobs), 1)
         self.assertEqual(result.jobs[0].posting_date_confidence, "high")
 
+    def test_sitemap_upgrades_reviewed_http_locations_to_https(self):
+        sitemap = """<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>http://example.com/jobs/1</loc></url></urlset>"""
+        page = """<script type="application/ld+json">{"@type":"JobPosting","identifier":"1","title":"Backend Engineer","datePosted":"2026-08-24","hiringOrganization":{"name":"Example"}}</script>"""
+        requested = []
+
+        def handler(url, _kwargs):
+            requested.append(url)
+            return page if url == "https://example.com/jobs/1" else sitemap
+
+        result = SitemapConnector().fetch(
+            company(
+                {
+                    "type": "sitemap",
+                    "sitemap_url": "https://example.com/sitemap.xml",
+                    "upgrade_http_to_https": True,
+                }
+            ),
+            FakeClient(handler),
+            SINCE,
+        )
+        self.assertEqual(len(result.jobs), 1)
+        self.assertIn("https://example.com/jobs/1", requested)
+        self.assertNotIn("http://example.com/jobs/1", requested)
+
     def test_sitemap_accepts_configured_hiring_organization_alias(self):
         sitemap = """<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.com/jobs/1</loc></url></urlset>"""
         page = """<script type="application/ld+json">{"@type":"JobPosting","identifier":"1","title":"Backend Software Engineer","datePosted":"2026-08-24","hiringOrganization":{"name":"HPE"}}</script>"""
