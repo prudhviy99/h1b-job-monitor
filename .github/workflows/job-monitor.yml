@@ -3,14 +3,17 @@ name: H-1B job monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 7 * * *"
-      timezone: "America/Los_Angeles"
-    - cron: "47 9 * * *"
-      timezone: "America/Los_Angeles"
-    - cron: "17 19 * * *"
-      timezone: "America/Los_Angeles"
-    - cron: "47 21 * * *"
-      timezone: "America/Los_Angeles"
+    # Explicit UTC candidates avoid timezone-scheduler ambiguity. Paired UTC
+    # hours cover both PDT and PST; the cadence guard permits one real crawl
+    # in each Pacific morning/evening window.
+    - cron: "17 14 * * *"
+    - cron: "17 15 * * *"
+    - cron: "47 16 * * *"
+    - cron: "47 17 * * *"
+    - cron: "17 2 * * *"
+    - cron: "17 3 * * *"
+    - cron: "47 4 * * *"
+    - cron: "47 5 * * *"
 
 permissions: {}
 

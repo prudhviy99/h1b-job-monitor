@@ -106,7 +106,7 @@ This policy costs coverage, intentionally. `company_health.csv` makes that cost 
 
 ### Hosted GitHub Actions schedule
 
-The workflow targets **07:17 and 19:17 America/Los_Angeles**, including daylight-saving changes. Because GitHub documents that scheduled events can be delayed or dropped under load, backup triggers run at 09:47 and 21:47. A cadence guard checks successful workflow history and permits only one actual crawl in each morning/evening window, so the monitor remains twice daily rather than crawling four times. GitHub's hosted runner continues when the laptop is asleep, closed, offline, or powered down, and the workflow can also be started manually from the repository's Actions tab.
+The workflow targets **07:17 and 19:17 America/Los_Angeles**, including daylight-saving changes. Explicit UTC candidates cover both PDT and PST, with later candidates providing recovery when GitHub delays or drops an earlier event. A cadence guard counts only successful runs that uploaded a crawl report and permits one actual crawl in each Pacific morning/evening window; seasonally early candidates and duplicate candidates exit without crawling. GitHub's hosted runner continues when the laptop is asleep, closed, offline, or powered down, and the workflow can also be started manually from the repository's Actions tab.
 
 This repository is intentionally public. Its workflow definition, run logs, job summaries, match/failure issues, repository owner, and legacy local launcher/package identifiers are therefore public. The checked-in matching profile contains only generalized experience and skill evidence; the resume file, contact details, and local SQLite database are excluded. Each run retains the report artifact for 30 days and creates an owner-assigned public issue for new P0/P1/P2 matches.
 
@@ -142,7 +142,7 @@ Copy and edit `scheduler/crontab.example`. Cron uses the machine's local timezon
 
 ### GitHub Actions
 
-`.github/workflows/job-monitor.yml` is the hosted workflow definition. It uses GitHub's timezone-aware primary and guarded backup schedules, prevents overlapping runs, validates the full deterministic test suite before crawling, checkpoints SQLite before saving state, uploads reports, and pins third-party actions to reviewed commit SHAs. Scheduled workflow starts can still be delayed during periods of high GitHub Actions load; the listed times are targets, not hard real-time guarantees.
+`.github/workflows/job-monitor.yml` is the hosted workflow definition. It uses DST-safe UTC candidate schedules with a Pacific-time cadence guard, prevents overlapping runs, validates the full deterministic test suite before crawling, checkpoints SQLite before saving state, uploads reports, and pins third-party actions to reviewed commit SHAs. Scheduled workflow starts can still be delayed during periods of high GitHub Actions load; the listed times are targets, not hard real-time guarantees.
 
 ## Reliability and state
 

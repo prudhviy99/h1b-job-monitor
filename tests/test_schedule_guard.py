@@ -1,48 +1,100 @@
 import unittest
 from datetime import datetime, timezone
 
-from scripts.schedule_guard import should_run, window_start
+from scripts.schedule_guard import (
+    cadence_decision,
+    has_report_artifact,
+    should_run,
+    window_bounds,
+)
 
 
 class ScheduleGuardTests(unittest.TestCase):
-    def setUp(self):
-        self.now = datetime(2026, 8, 26, 22, 0, tzinfo=timezone.utc)  # 15:00 Pacific
-
     def test_manual_runs_are_never_suppressed(self):
         self.assertTrue(
             should_run(
                 "workflow_dispatch",
-                "17 7 * * *",
+                "",
                 "2",
-                [{"id": 1, "created_at": "2026-08-26T12:00:00Z"}],
-                self.now,
+                [{"id": 1, "created_at": "2026-08-26T14:20:00Z"}],
+                datetime(2026, 8, 26, 15, 0, tzinfo=timezone.utc),
             )
         )
 
-    def test_morning_backup_skips_after_a_success_in_the_same_window(self):
-        runs = [{"id": 1, "created_at": "2026-08-26T14:17:00Z"}]
-        self.assertFalse(should_run("schedule", "47 9 * * *", "2", runs, self.now))
+    def test_summer_morning_primary_runs(self):
+        now = datetime(2026, 8, 26, 14, 22, tzinfo=timezone.utc)
+        self.assertTrue(should_run("schedule", "17 14 * * *", "2", [], now))
 
-    def test_morning_primary_runs_when_only_an_older_success_exists(self):
-        runs = [{"id": 1, "created_at": "2026-08-26T10:30:00Z"}]
-        self.assertTrue(should_run("schedule", "17 7 * * *", "2", runs, self.now))
+    def test_summer_morning_alternate_skips_after_completed_crawl(self):
+        now = datetime(2026, 8, 26, 15, 22, tzinfo=timezone.utc)
+        crawls = [{"id": 1, "created_at": "2026-08-26T14:22:00Z"}]
+        self.assertFalse(should_run("schedule", "17 15 * * *", "2", crawls, now))
 
-    def test_evening_backup_uses_the_evening_window(self):
-        evening = datetime(2026, 8, 27, 5, 0, tzinfo=timezone.utc)  # 22:00 Pacific
-        runs = [{"id": 1, "created_at": "2026-08-27T02:17:00Z"}]
-        self.assertFalse(should_run("schedule", "47 21 * * *", "2", runs, evening))
+    def test_winter_early_morning_candidate_is_skipped(self):
+        now = datetime(2026, 1, 15, 14, 22, tzinfo=timezone.utc)  # 06:22 PST
+        decision, reason = cadence_decision("schedule", "17 14 * * *", "2", [], now)
+        self.assertFalse(decision)
+        self.assertIn("before", reason)
+
+    def test_winter_morning_primary_runs(self):
+        now = datetime(2026, 1, 15, 15, 22, tzinfo=timezone.utc)  # 07:22 PST
+        self.assertTrue(should_run("schedule", "17 15 * * *", "2", [], now))
+
+    def test_summer_evening_primary_uses_previous_pacific_date(self):
+        now = datetime(2026, 8, 27, 2, 22, tzinfo=timezone.utc)  # Aug 26 19:22 PDT
+        self.assertEqual(
+            window_bounds("17 2 * * *", now),
+            (
+                datetime(2026, 8, 27, 2, 0, tzinfo=timezone.utc),
+                datetime(2026, 8, 27, 11, 0, tzinfo=timezone.utc),
+            ),
+        )
+        self.assertTrue(should_run("schedule", "17 2 * * *", "2", [], now))
+
+    def test_evening_backup_skips_after_completed_crawl(self):
+        now = datetime(2026, 8, 27, 4, 52, tzinfo=timezone.utc)
+        crawls = [{"id": 1, "created_at": "2026-08-27T02:22:00Z"}]
+        self.assertFalse(should_run("schedule", "47 4 * * *", "2", crawls, now))
+
+    def test_successful_noop_without_report_is_not_a_completed_crawl(self):
+        self.assertFalse(has_report_artifact({"artifacts": []}))
+        self.assertFalse(
+            has_report_artifact(
+                {"artifacts": [{"name": "unrelated", "expired": False}]}
+            )
+        )
+
+    def test_uploaded_report_identifies_completed_crawl(self):
+        self.assertTrue(
+            has_report_artifact(
+                {
+                    "artifacts": [
+                        {"name": "h1b-job-report-123-1", "expired": False}
+                    ]
+                }
+            )
+        )
+        self.assertFalse(
+            has_report_artifact(
+                {
+                    "artifacts": [
+                        {"name": "h1b-job-report-123-1", "expired": True}
+                    ]
+                }
+            )
+        )
+
+    def test_delayed_trigger_after_its_window_is_skipped(self):
+        now = datetime(2026, 8, 27, 13, 0, tzinfo=timezone.utc)  # 06:00 PDT
+        decision, reason = cadence_decision("schedule", "17 2 * * *", "2", [], now)
+        self.assertFalse(decision)
+        self.assertIn("after", reason)
 
     def test_current_run_and_unknown_schedules_fail_open(self):
-        runs = [{"id": 2, "created_at": "2026-08-26T14:17:00Z"}]
-        self.assertTrue(should_run("schedule", "47 9 * * *", "2", runs, self.now))
-        self.assertTrue(should_run("schedule", "* * * * *", "3", runs, self.now))
-
-    def test_late_evening_event_before_four_am_uses_previous_date(self):
-        late = datetime(2026, 8, 27, 9, 0, tzinfo=timezone.utc)  # 02:00 Pacific
-        self.assertEqual(
-            window_start("17 19 * * *", late),
-            datetime(2026, 8, 26, 23, 0, tzinfo=timezone.utc),
-        )
+        now = datetime(2026, 8, 26, 14, 22, tzinfo=timezone.utc)
+        crawls = [{"id": 2, "created_at": "2026-08-26T14:20:00Z"}]
+        self.assertTrue(should_run("schedule", "17 14 * * *", "2", crawls, now))
+        self.assertTrue(should_run("schedule", "* * * * *", "3", crawls, now))
 
 
 if __name__ == "__main__":
