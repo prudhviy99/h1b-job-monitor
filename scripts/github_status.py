@@ -57,6 +57,8 @@ def render_status(now, history, expected, repository, run_id, issues, failures, 
         "If this timestamp stops advancing, GitHub may not be delivering events; this same scheduler cannot alert while it is completely stopped.",
         "",
     ]
+    if decision.get("retry_at"):
+        body += [f"Recovery becomes eligible at **{local_time(decision['retry_at'])}**; the next delivered wake-up after that can retry. This is not a guaranteed start time.", ""]
     if latest.get("status") == "success" and not latest.get("emitted_jobs"):
         body += ["The latest real crawl completed with **no new verified matches**. That is different from not running.", ""]
     if issues:
@@ -129,4 +131,3 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

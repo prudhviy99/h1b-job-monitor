@@ -162,7 +162,7 @@ The SQLite database is `data/jobs.sqlite`. The main identity is a hash of employ
 
 The CLI takes a nonblocking file lock next to the database, so an overlapping scheduler invocation exits instead of racing the state. SQLite uses WAL mode. Every source failure is isolated. A partial run processes healthy employers but does not advance a failed or incomplete employer's cursor. Recent detail failures, relevant request-budget exhaustion, and unsafe pagination truncation are marked `degraded` in source health rather than being called complete.
 
-The evolving database is carried between hosted runs through the GitHub Actions cache. Cache entries are recoverable execution state, not permanent storage: if GitHub evicts every usable state cache, the monitor deliberately starts a fresh seven-day window and may re-alert a still-open current-week role. The one-time deployment bootstrap is a validated, stripped snapshot with job descriptions and HTTP response bodies removed; it is removed from the working tree after the first hosted cache is verified.
+The evolving database is carried between hosted runs through the GitHub Actions cache, with a separate checksum-checked recovery artifact after each delivered crawl. Cache eviction triggers validated backup recovery, never a fresh seven-day initialization. If neither current state nor a safe backup is available, the workflow fails visibly and requires repair before crawling. The former one-time deployment bootstrap is no longer used by the hosted workflow.
 
 GET responses with ETag or Last-Modified are conditionally retrieved and cached in SQLite. `429` and transient 5xx responses are retried with exponential backoff and jitter. Requests are rate-limited per host, and response size is capped.
 

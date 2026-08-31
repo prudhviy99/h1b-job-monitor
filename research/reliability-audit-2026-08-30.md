@@ -30,3 +30,11 @@ As of 20:51 Pacific on August 30, that day's evening native event had not arrive
 [GitHub documents that scheduled events can be delayed or dropped](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule). Its status page listed no incident for August 29–30, but that does not override the repository's observed delays.
 
 Frequent native wake-ups reduce dependence on any single cron event; they do not create an independent scheduler or guarantee bounded lateness. An independently hosted, authenticated workflow dispatcher plus a separate freshness alert is needed for a stronger timing promise. No such service has been provisioned. See README for the narrow dispatch contract.
+
+## Deployment verification
+
+- Commit `208c009` was deployed and an ordinary, non-forced cloud dispatch correctly selected the overdue August 30 evening window: [run 33361446116](https://github.com/prudhviy99/h1b-job-monitor/actions/runs/33361446116).
+- The actual crawl began at 10:42 PM Pacific: 62/63 sources healthy, 12,173 jobs fetched, zero new matches. Expedia still returned HTTPS 403 for `/job/software-development-engineer-iii/chicago-il/R-109243/`. This external restriction is unresolved; the workflow correctly failed and retained its source cursor instead of claiming full coverage.
+- Checkpoint, issue delivery, recovery-backup upload, state-cache save, report upload, and status publication all passed. [Failure alert 14](https://github.com/prudhviy99/h1b-job-monitor/issues/14) remains open; [status issue 15](https://github.com/prudhviy99/h1b-job-monitor/issues/15) reports partial coverage and recovery cooldown.
+- Downloaded and restored the new cloud recovery artifact into an isolated temporary database through the real recovery API path. Checksum, integrity and manifest validation passed: 13,738 job identities, 19 crawl records, 206,493 sightings, and 1,134 company-run records. Neither production nor the existing local database was reset or replaced.
+- This verifies current crawling, partial-failure handling, delivery, and state recovery—not future automatic trigger timing or Expedia availability.

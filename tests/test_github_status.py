@@ -30,7 +30,16 @@ class GithubStatusTests(unittest.TestCase):
         self.assertIn("needs attention", title)
         self.assertIn("Never", body)
 
+    def test_cooldown_displays_eligibility_not_a_promised_start(self):
+        row = crawl("2026-08-31T05:42:00Z")
+        row.update(status="partial", companies_ok=62, companies_failed=1,
+                   finished_at="2026-08-31T05:45:00Z")
+        title, body = render_status(stamp("2026-08-31T06:00:00Z"), [row], 63,
+                                    "owner/repo", "10", [], [])
+        self.assertIn("needs attention", title)
+        self.assertIn("2026-08-30 11:45 PM PDT", body)
+        self.assertIn("not a guaranteed start time", body)
+
 
 if __name__ == "__main__":
     unittest.main()
-
