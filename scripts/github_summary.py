@@ -13,6 +13,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 from urllib.parse import quote, urlsplit
+from zoneinfo import ZoneInfo
+
+
+PACIFIC = ZoneInfo("America/Los_Angeles")
+
+
+def local_run_time(metadata):
+    value = str(metadata.get("started_at") or "")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+    except ValueError:
+        parsed = datetime.now(timezone.utc)
+    return parsed.astimezone(PACIFIC)
 
 
 def markdown_text(value: Any, limit: int = 600) -> str:
@@ -119,7 +134,8 @@ def main() -> int:
     jobs = [] if monitor_failed or infrastructure_failures else eligible_jobs
     reported_failures = int(metadata.get("companies_failed") or 0)
     should_alert = bool(jobs or failures or reported_failures or monitor_failed or infrastructure_failures)
-    date = datetime.now(timezone.utc).date().isoformat()
+    started_local = local_run_time(metadata)
+    date = started_local.date().isoformat() + " Pacific"
     run_marker = re.sub(r"[^A-Za-z0-9_.:-]", "_", str(metadata.get("run_id") or ""))[:120]
 
     if monitor_failed or infrastructure_failures:
@@ -131,6 +147,12 @@ def main() -> int:
         title = f"H-1B monitor: {count} new match{'es' if count != 1 else ''} — {date}"
 
     lines = ["# H-1B job monitor", ""]
+    lines.extend([
+        "Actual crawl start: **" + started_local.strftime("%Y-%m-%d %I:%M %p %Z") + "**",
+        "",
+        "Failure alerts may close after a successful retry; job-match issues are kept open.",
+        "",
+    ])
     if run_marker:
         lines.extend([f"<!-- h1b-monitor-run:{run_marker} -->", ""])
     if metadata:

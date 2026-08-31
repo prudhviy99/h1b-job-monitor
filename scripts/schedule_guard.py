@@ -1,255 +1,131 @@
 #!/usr/bin/env python3
-"""Allow one completed crawl per Pacific morning/evening window."""
-
+"""Decide whether a real crawl is due from Pacific wall time and durable state."""
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import urllib.request
-from datetime import date, datetime, time, timedelta, timezone
+import sqlite3
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, Tuple
 from zoneinfo import ZoneInfo
 
-
 PACIFIC = ZoneInfo("America/Los_Angeles")
-
-# GitHub schedules these expressions in UTC. Each group includes both the PDT
-# and PST primary/backup possibilities. The window check suppresses the
-# seasonally early candidate and every candidate after a completed crawl.
-MORNING_SCHEDULES = {
-    "17 14 * * *",
-    "17 15 * * *",
-    "47 16 * * *",
-    "47 17 * * *",
-}
-EVENING_SCHEDULES = {
-    "17 2 * * *",
-    "17 3 * * *",
-    "47 4 * * *",
-    "47 5 * * *",
-}
-RETIRED_TIMEZONE_SCHEDULES = {
-    "17 7 * * *",
-    "47 9 * * *",
-    "17 19 * * *",
-    "47 21 * * *",
-}
-REPORT_ARTIFACT_PREFIX = "h1b-job-report-"
+RETRY_MINUTES = 60
+MAX_ATTEMPTS_PER_WINDOW = 3
 
 
-def parse_timestamp(value: str) -> Optional[datetime]:
+def parse_timestamp(value):
     if not value:
         return None
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
 
 
-def normalize_schedule(schedule: str) -> str:
-    return " ".join(schedule.split())
+def expected_companies(path):
+    value = json.loads(Path(path).read_text(encoding="utf-8"))
+    companies = value["companies"] if isinstance(value, dict) else value
+    count = sum(bool(company.get("enabled")) for company in companies)
+    if not count:
+        raise ValueError("No enabled companies; refusing to declare the monitor healthy.")
+    return count
 
 
-def schedule_kind(schedule: str) -> Optional[str]:
-    normalized = normalize_schedule(schedule)
-    if normalized in MORNING_SCHEDULES:
-        return "morning"
-    if normalized in EVENING_SCHEDULES:
-        return "evening"
-    return None
+def read_history(path):
+    path = Path(path).resolve()
+    if not path.is_file():
+        raise RuntimeError("Persistent state is missing; recover it before crawling.")
+    with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as connection:
+        connection.row_factory = sqlite3.Row
+        return [dict(row) for row in connection.execute(
+            "SELECT * FROM runs ORDER BY started_at DESC LIMIT 500"
+        )]
 
 
-def nominal_scheduled_time(schedule: str, now: datetime) -> Optional[datetime]:
-    """Return the most recent nominal daily UTC occurrence for a trigger."""
-    fields = normalize_schedule(schedule).split()
-    if len(fields) != 5 or not fields[0].isdigit() or not fields[1].isdigit():
-        return None
-    minute = int(fields[0])
-    hour = int(fields[1])
-    if not (0 <= minute <= 59 and 0 <= hour <= 23):
-        return None
-    utc_now = now.astimezone(timezone.utc)
-    candidate = utc_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if candidate > utc_now:
-        candidate -= timedelta(days=1)
-    return candidate
-
-
-def local_datetime(day: date, value: time) -> datetime:
-    return datetime.combine(day, value, tzinfo=PACIFIC).astimezone(timezone.utc)
-
-
-def window_bounds(schedule: str, now: datetime) -> Optional[Tuple[datetime, datetime]]:
-    """Resolve the logical Pacific window belonging to this UTC trigger."""
-    kind = schedule_kind(schedule)
-    nominal = nominal_scheduled_time(schedule, now)
-    if kind is None or nominal is None:
-        return None
-    local_day = nominal.astimezone(PACIFIC).date()
-    if kind == "morning":
-        return (
-            local_datetime(local_day, time(7, 0)),
-            local_datetime(local_day, time(19, 0)),
-        )
-    return (
-        local_datetime(local_day, time(19, 0)),
-        local_datetime(local_day + timedelta(days=1), time(4, 0)),
-    )
-
-
-def cadence_decision(
-    event_name: str,
-    schedule: str,
-    current_run_id: str,
-    completed_crawls: Iterable[Dict[str, Any]],
-    now: Optional[datetime] = None,
-) -> Tuple[bool, str]:
-    if event_name != "schedule":
-        return True, "Manual run: cadence guard allows the crawl."
-    if normalize_schedule(schedule) in RETIRED_TIMEZONE_SCHEDULES:
-        return False, "Retired timezone trigger arrived from GitHub's queue; skipping."
-    current_time = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    bounds = window_bounds(schedule, current_time)
-    if bounds is None:
-        return True, "Unknown schedule: cadence guard fails open and allows the crawl."
-    start, end = bounds
-    if current_time < start:
-        return False, "Seasonal alternate trigger arrived before its Pacific window; skipping."
-    if current_time >= end:
-        return False, "Delayed trigger arrived after its Pacific window; skipping."
-    for run in completed_crawls:
-        if str(run.get("id") or "") == str(current_run_id):
-            continue
-        created_at = parse_timestamp(str(run.get("created_at") or ""))
-        if created_at is not None and start <= created_at < end:
-            return False, "This window already has a completed crawl; skipping the duplicate trigger."
-    return True, "No completed crawl exists in this window; cadence guard allows the crawl."
-
-
-def should_run(
-    event_name: str,
-    schedule: str,
-    current_run_id: str,
-    completed_crawls: Iterable[Dict[str, Any]],
-    now: Optional[datetime] = None,
-) -> bool:
-    return cadence_decision(
-        event_name,
-        schedule,
-        current_run_id,
-        completed_crawls,
-        now,
-    )[0]
-
-
-def fetch_json(url: str, token: str) -> Dict[str, Any]:
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "User-Agent": "h1b-job-monitor-schedule-guard",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
-    with urllib.request.urlopen(request, timeout=20) as response:
-        return json.load(response)
-
-
-def has_report_artifact(payload: Dict[str, Any]) -> bool:
-    return any(
-        str(artifact.get("name") or "").startswith(REPORT_ARTIFACT_PREFIX)
-        and not artifact.get("expired", False)
-        for artifact in payload.get("artifacts") or []
-    )
-
-
-def fetch_completed_crawls(
-    repository: str,
-    token: str,
-    since: datetime,
-    current_run_id: str,
-) -> Iterable[Dict[str, Any]]:
-    """Return successful runs that actually uploaded a crawl report."""
-    runs_url = (
-        f"https://api.github.com/repos/{repository}/actions/workflows/"
-        "job-monitor.yml/runs?status=success&per_page=50"
-    )
-    runs = fetch_json(runs_url, token).get("workflow_runs") or []
-    completed = []
-    for run in runs:
-        run_id = str(run.get("id") or "")
-        if not run_id or run_id == str(current_run_id):
-            continue
-        created_at = parse_timestamp(str(run.get("created_at") or ""))
-        if created_at is None or created_at < since:
-            continue
-        artifacts_url = (
-            f"https://api.github.com/repos/{repository}/actions/runs/"
-            f"{run_id}/artifacts?per_page=100"
-        )
-        if has_report_artifact(fetch_json(artifacts_url, token)):
-            completed.append(run)
-    return completed
-
-
-def write_output(path: str, should_execute: bool) -> None:
-    with Path(path).open("a", encoding="utf-8") as stream:
-        stream.write(f"should_run={'true' if should_execute else 'false'}\n")
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--event-name", required=True)
-    parser.add_argument("--schedule", default="")
-    parser.add_argument("--repository", required=True)
-    parser.add_argument("--run-id", required=True)
-    parser.add_argument("--output", required=True)
-    args = parser.parse_args()
-
-    if args.event_name != "schedule":
-        execute, reason = cadence_decision(
-            args.event_name,
-            args.schedule,
-            args.run_id,
-            [],
-        )
-    elif normalize_schedule(args.schedule) in RETIRED_TIMEZONE_SCHEDULES:
-        execute, reason = cadence_decision(
-            args.event_name,
-            args.schedule,
-            args.run_id,
-            [],
-        )
+def current_window(now):
+    """A delayed wake-up serves the window due NOW, regardless of its cron text."""
+    local = now.astimezone(PACIFIC)
+    day = local.date()
+    morning = datetime.combine(day, time(7, 17), PACIFIC)
+    evening = datetime.combine(day, time(19, 17), PACIFIC)
+    if local >= evening:
+        start, end, kind = evening, datetime.combine(day + timedelta(days=1), time(7, 17), PACIFIC), "evening"
+    elif local >= morning:
+        start, end, kind = morning, evening, "morning"
     else:
-        try:
-            now = datetime.now(timezone.utc)
-            bounds = window_bounds(args.schedule, now)
-            since = bounds[0] if bounds else now - timedelta(days=2)
-            crawls = fetch_completed_crawls(
-                args.repository,
-                os.environ["GH_TOKEN"],
-                since,
-                args.run_id,
-            )
-            execute, reason = cadence_decision(
-                args.event_name,
-                args.schedule,
-                args.run_id,
-                crawls,
-                now,
-            )
-        except Exception as exc:
-            # Missing a crawl is worse than a harmless state-deduplicated extra run.
-            execute = True
-            reason = f"Cadence lookup failed open: {type(exc).__name__}: {exc}"
-    write_output(args.output, execute)
-    print(reason)
+        start, end, kind = datetime.combine(day - timedelta(days=1), time(19, 17), PACIFIC), morning, "evening"
+    return {
+        "window_key": f"{start.date().isoformat()}-{kind}",
+        "target_at": start.astimezone(timezone.utc).isoformat(),
+        "next_target_at": end.astimezone(timezone.utc).isoformat(),
+    }
+
+
+def is_full_success(row, expected):
+    return (
+        row.get("status") == "success" and bool(row.get("finished_at"))
+        and int(row.get("companies_total") or 0) == expected
+        and int(row.get("companies_ok") or 0) == expected
+        and int(row.get("companies_failed") or 0) == 0
+    )
+
+
+def decide(now, history, expected, force=False):
+    now = now.astimezone(timezone.utc)
+    result = current_window(now)
+    start = parse_timestamp(result["target_at"])
+    end = parse_timestamp(result["next_target_at"])
+    # A subset-only diagnostic crawl cannot satisfy the whole company universe.
+    attempts = [
+        row for row in history
+        if start <= parse_timestamp(row["started_at"]) < end
+        and int(row.get("companies_total") or 0) == expected
+    ]
+    attempts.sort(key=lambda row: parse_timestamp(row["started_at"]), reverse=True)
+    covered = any(is_full_success(row, expected) for row in attempts)
+    result.update(
+        checked_at=now.isoformat(), window_complete=covered,
+        attempts=len(attempts), late_minutes=max(0, int((now - start).total_seconds() / 60)),
+        should_run=False,
+    )
+    if force:
+        result.update(should_run=True, reason="Explicit forced crawl requested; job deduplication remains enabled.")
+    elif covered:
+        result["reason"] = "Current window already has a successful full crawl; no additional crawl needed."
+    elif len(attempts) >= MAX_ATTEMPTS_PER_WINDOW:
+        result["reason"] = "Retry limit reached for this window; source failures remain visible. Next window will retry."
+    elif attempts and now < parse_timestamp(attempts[0].get("finished_at") or attempts[0]["started_at"]) + timedelta(minutes=RETRY_MINUTES):
+        retry_at = parse_timestamp(attempts[0].get("finished_at") or attempts[0]["started_at"]) + timedelta(minutes=RETRY_MINUTES)
+        result.update(retry_at=retry_at.isoformat(), reason="Previous crawl was incomplete; waiting for the one-hour recovery cooldown.")
+    else:
+        result.update(should_run=True, reason="No successful full crawl in the current window; running catch-up now.")
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--state", type=Path, default=Path("data/jobs.sqlite"))
+    parser.add_argument("--companies", type=Path, default=Path("config/companies.json"))
+    parser.add_argument("--event-name", default="schedule")
+    parser.add_argument("--schedule", default="")
+    parser.add_argument("--force", choices=("true", "false"), default="false")
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--receipt", type=Path, default=Path("reports/cadence.json"))
+    args = parser.parse_args()
+    history = read_history(args.state)
+    decision = decide(datetime.now(timezone.utc), history, expected_companies(args.companies), args.force == "true")
+    decision.update(event_name=args.event_name, trigger_expression=args.schedule)
+    args.receipt.parent.mkdir(parents=True, exist_ok=True)
+    args.receipt.write_text(json.dumps(decision, indent=2) + "\n", encoding="utf-8")
+    with args.output.open("a", encoding="utf-8") as stream:
+        stream.write(f"should_run={str(decision['should_run']).lower()}\n")
+        stream.write(f"window_key={decision['window_key']}\n")
+    print(json.dumps(decision, indent=2))
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with Path(summary).open("a", encoding="utf-8") as stream:
+            stream.write(f"## Cadence check: {decision['window_key']}\n\n{decision['reason']}\n\n")
+            stream.write("This is a wake-up check, not evidence that a crawl ran. See the always-open monitor status issue.\n\n")
     return 0
 
 

@@ -6,5 +6,7 @@ logs/
 reports/runs/
 reports/latest.*
 reports/company_health.csv
+reports/cadence.json
+reports/monitor-status.md
+state-backup/
 .DS_Store
-

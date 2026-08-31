@@ -484,6 +484,22 @@ class ConnectorTests(unittest.TestCase):
                 self.assertFalse(result.cursor_complete)
                 self.assertIn("Skipped failed detail page", result.warning)
 
+    def test_sitemap_access_denied_stops_remaining_requests(self):
+        sitemap = '<urlset><url><loc>https://example.com/jobs/1</loc></url><url><loc>https://example.com/jobs/2</loc></url></urlset>'
+        requested = []
+        def handler(url, kwargs):
+            requested.append(url)
+            if "/jobs/" in url:
+                raise HttpError(f"HTTP 403 for {url}: Access denied")
+            return sitemap
+        result = SitemapConnector().fetch(
+            company({"type": "sitemap", "sitemap_url": "https://example.com/sitemap.xml"}),
+            FakeClient(handler), SINCE,
+        )
+        self.assertEqual(len(requested), 2)
+        self.assertFalse(result.cursor_complete)
+        self.assertIn("stopped remaining detail requests", result.warning)
+
 
 if __name__ == "__main__":
     unittest.main()

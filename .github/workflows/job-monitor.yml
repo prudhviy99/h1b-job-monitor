@@ -2,18 +2,15 @@ name: H-1B job monitor
 
 on:
   workflow_dispatch:
+    inputs:
+      force_crawl:
+        description: "Force a crawl even if this window is covered (normally leave false)"
+        type: boolean
+        default: false
   schedule:
-    # Explicit UTC candidates avoid timezone-scheduler ambiguity. Paired UTC
-    # hours cover both PDT and PST; the cadence guard permits one real crawl
-    # in each Pacific morning/evening window.
-    - cron: "17 14 * * *"
-    - cron: "17 15 * * *"
-    - cron: "47 16 * * *"
-    - cron: "47 17 * * *"
-    - cron: "17 2 * * *"
-    - cron: "17 3 * * *"
-    - cron: "47 4 * * *"
-    - cron: "47 5 * * *"
+    # A wake-up is NOT a crawl. Delayed events check the Pacific window due
+    # when they actually arrive, using persisted real-crawl history.
+    - cron: "17,47 * * * *"
 
 permissions: {}
 
@@ -41,23 +38,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Keep one crawl per morning or evening window
-        id: cadence
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          SCHEDULE_EXPRESSION: ${{ github.event.schedule }}
-        run: |
-          python scripts/schedule_guard.py \
-            --event-name "$EVENT_NAME" \
-            --schedule "$SCHEDULE_EXPRESSION" \
-            --repository "$GITHUB_REPOSITORY" \
-            --run-id "$GITHUB_RUN_ID" \
-            --output "$GITHUB_OUTPUT"
-
       - name: Restore persistent discovery state
         id: state-restore
-        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: data/jobs.sqlite
@@ -65,14 +47,24 @@ jobs:
           restore-keys: |
             h1b-state-v2-
 
-      - name: Bootstrap state when no cache exists
-        id: bootstrap
-        if: ${{ steps.cadence.outputs.should_run == 'true' && hashFiles('data/jobs.sqlite') == '' }}
+      - name: Validate or recover durable state without resetting seen jobs
+        id: state-recover
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/cloud_state.py recover
+
+      - name: Check whether a real crawl is due now
+        id: cadence
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE_EXPRESSION: ${{ github.event.schedule }}
+          FORCE_CRAWL: ${{ inputs.force_crawl && 'true' || 'false' }}
         run: |
-          python scripts/bootstrap_cloud_state.py \
-            --seed seed/jobs.sqlite.gz \
-            --destination data/jobs.sqlite \
-            --max-age-hours 72
+          python scripts/schedule_guard.py \
+            --event-name "$EVENT_NAME" \
+            --schedule "$SCHEDULE_EXPRESSION" \
+            --force "$FORCE_CRAWL" \
+            --output "$GITHUB_OUTPUT"
 
       - name: Validate configuration and tests
         id: validate
@@ -119,7 +111,7 @@ jobs:
           MONITOR_OUTCOME: ${{ steps.crawl.outcome }}
           MONITOR_EXIT_CODE: ${{ steps.crawl.outputs.exit_code }}
           STATE_RESTORE_OUTCOME: ${{ steps.state-restore.outcome }}
-          BOOTSTRAP_OUTCOME: ${{ steps.bootstrap.outcome }}
+          BOOTSTRAP_OUTCOME: ${{ steps.state-recover.outcome }}
           VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
           CHECKPOINT_OUTCOME: ${{ steps.checkpoint.outcome }}
         run: |
@@ -181,7 +173,7 @@ jobs:
             if [ -n "$OPEN_FAILURE" ]; then
               gh issue comment "$OPEN_FAILURE" \
                 --repo "$GITHUB_REPOSITORY" \
-                --body "Resolved by workflow run $GITHUB_RUN_ID."
+                --body "Recovered: all enabled sources checked successfully in [workflow run $GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). This failure alert is resolved; job-match issues remain open."
               gh issue close "$OPEN_FAILURE" \
                 --repo "$GITHUB_REPOSITORY" \
                 --reason completed
@@ -211,6 +203,23 @@ jobs:
             fi
           fi
 
+      - name: Prepare checked recovery backup
+        id: backup-prepare
+        if: ${{ always() && steps.cadence.outputs.should_run == 'true' && steps.checkpoint.outcome == 'success' && steps.summary.outcome == 'success' && steps.notify.outcome == 'success' }}
+        continue-on-error: true
+        run: python scripts/cloud_state.py backup
+
+      - name: Upload durable state recovery backup
+        id: backup-upload
+        if: ${{ always() && steps.backup-prepare.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: h1b-state-backup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: state-backup/
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Save persistent discovery state
         id: state-save
         if: ${{ always() && steps.cadence.outputs.should_run == 'true' && steps.checkpoint.outcome == 'success' && steps.summary.outcome == 'success' && steps.notify.outcome == 'success' }}
@@ -235,17 +244,20 @@ jobs:
 
       - name: Notify if persistence or report upload failed
         id: infrastructure-notify
-        if: ${{ always() && steps.cadence.outputs.should_run == 'true' && (steps.state-save.outcome == 'failure' || steps.upload.outcome == 'failure') }}
+        if: ${{ always() && steps.cadence.outputs.should_run == 'true' && (steps.state-save.outcome == 'failure' || steps.upload.outcome == 'failure' || steps.backup-prepare.outcome == 'failure' || steps.backup-upload.outcome == 'failure') }}
         env:
           GH_TOKEN: ${{ github.token }}
           STATE_SAVE_OUTCOME: ${{ steps.state-save.outcome }}
           UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+          BACKUP_PREPARE: ${{ steps.backup-prepare.outcome }}
+          BACKUP_UPLOAD: ${{ steps.backup-upload.outcome }}
         run: |
           {
             echo '# H-1B job monitor infrastructure failure'
             echo
             echo "- Persistent state save: \`$STATE_SAVE_OUTCOME\`"
             echo "- Report artifact upload: \`$UPLOAD_OUTCOME\`"
+            echo "- Recovery backup preparation/upload: $BACKUP_PREPARE / $BACKUP_UPLOAD"
             echo
             echo "Inspect workflow run $GITHUB_RUN_ID for the exact step logs."
           } > reports/infrastructure-failure.md
@@ -278,11 +290,39 @@ jobs:
               --body-file reports/infrastructure-failure.md
           fi
 
+      - name: Update always-open monitor status
+        id: status
+        if: ${{ always() && steps.cadence.outcome != 'cancelled' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CACHE_KEY: ${{ steps.state-restore.outputs.cache-matched-key }}
+          RESTORE: ${{ steps.state-restore.outcome }}
+          RECOVER: ${{ steps.state-recover.outcome }}
+          CADENCE: ${{ steps.cadence.outcome }}
+          VALIDATE: ${{ steps.validate.outcome }}
+          CRAWL: ${{ steps.crawl.outcome }}
+          CHECKPOINT: ${{ steps.checkpoint.outcome }}
+          SUMMARY: ${{ steps.summary.outcome }}
+          NOTIFY: ${{ steps.notify.outcome }}
+          SAVE: ${{ steps.state-save.outcome }}
+          BACKUP_PREPARE: ${{ steps.backup-prepare.outcome }}
+          BACKUP_UPLOAD: ${{ steps.backup-upload.outcome }}
+          UPLOAD: ${{ steps.upload.outcome }}
+        run: |
+          python scripts/github_status.py --cache-key "$CACHE_KEY" \
+            --step-outcome "State restore=$RESTORE" --step-outcome "State recovery=$RECOVER" \
+            --step-outcome "Cadence=$CADENCE" --step-outcome "Validation=$VALIDATE" \
+            --step-outcome "Crawl=$CRAWL" --step-outcome "Checkpoint=$CHECKPOINT" \
+            --step-outcome "Summary=$SUMMARY" --step-outcome "Notifications=$NOTIFY" \
+            --step-outcome "State save=$SAVE" --step-outcome "Backup=$BACKUP_PREPARE" \
+            --step-outcome "Backup upload=$BACKUP_UPLOAD" --step-outcome "Report upload=$UPLOAD"
+
       - name: Propagate any failure
         if: >-
-          ${{ always() && steps.cadence.outputs.should_run == 'true' && (
+          ${{ always() && (
             steps.state-restore.outcome == 'failure' ||
-            steps.bootstrap.outcome == 'failure' ||
+            steps.state-recover.outcome == 'failure' ||
+            steps.cadence.outcome == 'failure' ||
             steps.validate.outcome == 'failure' ||
             steps.crawl.outcome == 'failure' ||
             steps.checkpoint.outcome == 'failure' ||
@@ -290,6 +330,9 @@ jobs:
             steps.notify.outcome == 'failure' ||
             steps.state-save.outcome == 'failure' ||
             steps.upload.outcome == 'failure' ||
+            steps.backup-prepare.outcome == 'failure' ||
+            steps.backup-upload.outcome == 'failure' ||
+            steps.status.outcome == 'failure' ||
             steps.infrastructure-notify.outcome == 'failure'
           ) }}
         run: exit 1

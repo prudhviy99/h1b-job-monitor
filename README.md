@@ -106,11 +106,23 @@ This policy costs coverage, intentionally. `company_health.csv` makes that cost 
 
 ### Hosted GitHub Actions schedule
 
-The workflow targets **07:17 and 19:17 America/Los_Angeles**, including daylight-saving changes. Explicit UTC candidates cover both PDT and PST, with later candidates providing recovery when GitHub delays or drops an earlier event. A cadence guard counts only successful runs that uploaded a crawl report and permits one actual crawl in each Pacific morning/evening window; seasonally early candidates and duplicate candidates exit without crawling. GitHub's hosted runner continues when the laptop is asleep, closed, offline, or powered down, and the workflow can also be started manually from the repository's Actions tab.
+The workflow targets **07:17 and 19:17 America/Los_Angeles**, including daylight-saving changes. GitHub sends lightweight wake-ups every half hour. A wake-up restores the shared SQLite state and checks the window due at the actual current Pacific time—not the potentially hours-old cron expression. Only a completed, successful crawl of the entire enabled company universe satisfies a window. Extra wake-ups do not crawl or emit jobs. An incomplete crawl may retry after 60 minutes, up to three attempts per window; failures remain visible after that. A missed interval is covered by the next actual crawl using preserved per-company cursors.
+
+**GitHub schedules are best-effort, not guaranteed appointment times.** Recent native events arrived 3–6 hours late even with UTC schedules. More frequent wake-ups improve recovery but cannot provide an independent guarantee against GitHub's scheduler stopping entirely. Hosted execution does not depend on the laptop. Normal manual runs and external dispatches obey the same cadence; use the explicit `force_crawl` option only for an intentional additional scan.
 
 This repository is intentionally public. Its workflow definition, run logs, job summaries, match/failure issues, repository owner, and legacy local launcher/package identifiers are therefore public. The checked-in matching profile contains only generalized experience and skill evidence; the resume file, contact details, and local SQLite database are excluded. Each run retains the report artifact for 30 days and creates an owner-assigned public issue for new P0/P1/P2 matches.
 
-Source or workflow failures update one open failure issue instead of creating duplicates; the next clean run closes it. A failed finalization/checkpoint suppresses match notifications so a retry cannot create an avoidable duplicate alert. No issue is created for a clean run with no new matches.
+Open the issue labeled **h1b-monitor-status** first. It stays open and shows the last wake-up separately from the last actual crawl, source counts, latest outcome, new-match count (including zero), due window, and recent history. Its timestamp is a snapshot: if it stops advancing, do not mistake the old “healthy” label for a live guarantee. This scheduler cannot send an alert while all of its own triggers have stopped.
+
+Issues labeled **h1b-monitor-match** contain jobs and are never auto-closed. Issues labeled **h1b-monitor-failure** describe operational problems; recovery closes them with a link to the successful run. Closure does not delete or retract any jobs. All new issue dates and visible crawl timestamps use Pacific time. Expedia and other sites can intermittently deny hosted requests; the crawler stops that source's detail requests on 401/403, preserves its cursor, and reports the failure without bypassing access controls.
+
+State is saved in the existing cache and in a checksum-checked recovery artifact retained for 90 days. The recovery copy includes job identities, emission markers, sightings, cursors, and run history; disposable HTTP-response cache entries are omitted from the copy only. Backups are accessible to people who can download this public repository's artifacts. If the cache disappears, the latest backup is verified before restoration. Missing/corrupt state or a backup older than a newer unbacked report blocks execution: it never silently resets seen jobs or reinitializes the past week.
+
+### Optional independent scheduler (not deployed)
+
+For stronger timing, an independently hosted scheduler can invoke the GitHub workflow API at the same local targets, or every half hour as a redundant wake-up. It must run off the laptop and use a **new fine-grained token restricted to this repository with Actions: write**, stored as a secret—not the laptop's existing broad Git credential. Do not put a token in a URL, source file, issue, or log.
+
+Send an authenticated HTTPS POST to `https://api.github.com/repos/prudhviy99/h1b-job-monitor/actions/workflows/job-monitor.yml/dispatches` with body `{"ref":"main","inputs":{"force_crawl":false}}`. The ordinary native scheduler remains a fallback; both triggers share the same concurrency group, cadence, and SQLite deduplication. Dispatch acceptance is not run success: the external scheduler should also verify a completed full crawl after each target and alert through its own channel if none arrives. No external account, credential, paid service, or independent alerting has been configured by this repository.
 
 The earlier laptop-bound Codex task is paused after the hosted workflow's first successful run, preventing independent databases and duplicate alerts.
 
@@ -142,7 +154,7 @@ Copy and edit `scheduler/crontab.example`. Cron uses the machine's local timezon
 
 ### GitHub Actions
 
-`.github/workflows/job-monitor.yml` is the hosted workflow definition. It uses DST-safe UTC candidate schedules with a Pacific-time cadence guard, prevents overlapping runs, validates the full deterministic test suite before crawling, checkpoints SQLite before saving state, uploads reports, and pins third-party actions to reviewed commit SHAs. Scheduled workflow starts can still be delayed during periods of high GitHub Actions load; the listed times are targets, not hard real-time guarantees.
+`.github/workflows/job-monitor.yml` is the hosted workflow definition. It uses half-hourly wake-ups with a Pacific-time/SQLite cadence guard, prevents overlapping runs, validates tests before crawling, checkpoints SQLite, saves cache plus checked recovery backups, publishes reports and status, and pins third-party actions to reviewed commit SHAs. Scheduled starts can still be delayed or dropped; the listed target times are not hard real-time guarantees.
 
 ## Reliability and state
 

@@ -168,6 +168,12 @@ class SitemapConnector(Connector):
                 cursor_complete = False
                 if detail_errors <= 5:
                     warning_parts.append(f"Skipped failed detail page {page_url}: {exc}")
+                if getattr(exc.__cause__, "code", None) in {401, 403} or re.match(r"^HTTP (401|403) for ", str(exc)):
+                    warning_parts.append(
+                        "Access denied: stopped remaining detail requests for this source; "
+                        "cursor preserved for a later scheduled recovery attempt."
+                    )
+                    break
                 continue
             except (UnicodeError, ValueError) as exc:
                 detail_errors += 1

@@ -19,6 +19,10 @@ SPEC.loader.exec_module(github_summary)
 
 
 class GitHubSummaryTests(unittest.TestCase):
+    def test_report_dates_use_pacific_day_not_utc_day(self):
+        local = github_summary.local_run_time({"started_at": "2026-08-31T03:00:00Z"})
+        self.assertEqual(local.strftime("%Y-%m-%d %H:%M %Z"), "2026-08-30 20:00 PDT")
+
     def test_sanitizes_markdown_and_rejects_unsafe_urls(self):
         rendered = github_summary.markdown_text("@person [click](javascript:alert(1))\n# heading")
         self.assertNotIn("@person", rendered)
