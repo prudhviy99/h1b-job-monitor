@@ -11,7 +11,7 @@ from .models import Company, Decision, Job
 
 INTERNSHIP = re.compile(r"\b(intern(ship)?|co-?op|apprentice)\b", re.I)
 NEW_GRAD = re.compile(
-    r"\b(new grad(uate)?|recent grad(?:uate)?|university grad|graduate|campus|early career|"
+    r"\b(new (?:college )?grad(?:uate)?|recent grad(?:uate)?|university grad|graduate|campus|early career|"
     r"(?:early|emerging|entry) talent|entry[ -]level|junior|jr\.?|associate|trainee|AMTS)\b",
     re.I,
 )
@@ -1194,8 +1194,8 @@ class Ranker:
         self.p1_min_sponsorship = float(filters.get("p1_min_sponsorship_score", 0.60))
         self.p0_score = float(filters.get("p0_match_score", 82))
         self.p0_min_sponsorship = float(filters.get("p0_min_sponsorship_score", 0.75))
-        self.max_required_years = float(filters.get("max_required_years", 5))
-        self.senior_max_required_years = float(filters.get("senior_max_required_years", 5))
+        self.max_required_years = float(filters.get("max_required_years", 4))
+        self.senior_max_required_years = float(filters.get("senior_max_required_years", 4))
         self.exclude_explicit_no = bool(filters.get("exclude_explicit_no_sponsorship", True))
         self.require_us_location = bool(filters.get("require_us_location", True))
         self.max_title_score = float(matching.get("max_title_score", 30))
@@ -1430,6 +1430,8 @@ class Ranker:
         )
         if junior_ranges:
             rejection.append("experience range is explicitly junior (at most two years)")
+        elif early_career_band:
+            rejection.append("experience range is an early-career band (1-3 years)")
         elif (
             min_years is not None
             and max_years is not None
@@ -1453,7 +1455,9 @@ class Ranker:
                 why.append(f"experience floor appears to be {min_years:g} years")
         if self.senior.search(title):
             if min_years is None:
-                rejection.append("Senior title with no verifiable 3-5 year experience floor")
+                rejection.append(
+                    f"Senior title with no verifiable 3-{self.senior_max_required_years:g} year experience floor"
+                )
             elif min_years > self.senior_max_required_years:
                 rejection.append("Senior role exceeds configured experience ceiling")
             else:
@@ -1501,11 +1505,10 @@ class Ranker:
             score += 3
         elif min_years is not None and min_years <= self.ideal_required_years:
             score += 12
-        elif min_years is not None and min_years <= 5:
+        elif min_years is not None and min_years <= self.max_required_years:
             score += 8
         if early_career_band:
             score -= 6
-            why.append("experience band includes 1-3 years; priority capped at P2")
         score = max(0.0, min(100.0, round(score, 1)))
 
         if score < self.min_score:
@@ -1524,7 +1527,7 @@ class Ranker:
         )
         incomplete_experience_fit = min_years is None or min_years <= 2
         if accepted and stretch_experience:
-            why.append("five-year experience floor is a stretch; priority capped at P2")
+            why.append("experience floor is above the ideal target; priority capped at P2")
         if accepted and min_years is None:
             why.append("experience floor is not verifiable; priority capped at P2")
         elif accepted and min_years <= 2:

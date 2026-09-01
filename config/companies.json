@@ -248,11 +248,11 @@
       "name": "Amazon",
       "domain": "amazon.com",
       "careers_url": "https://www.amazon.jobs/en/search",
-      "enabled": true,
+      "enabled": false,
       "connector": {
         "type": "amazon",
         "endpoint": "https://www.amazon.jobs/en/search.json",
-        "access_policy": "strict",
+        "access_policy": "disabled",
         "keywords": [
           "software engineer",
           "software development engineer",
@@ -263,7 +263,7 @@
         "max_pages_per_query": 4,
         "default_country": "US"
       },
-      "monitor_status": "enabled-official-company-api",
+      "monitor_status": "disabled-by-user",
       "sponsorship": {
         "confidence": "high",
         "score": 0.82,
@@ -291,7 +291,7 @@
         "security",
         "SRE"
       ],
-      "notes": "Employer-level recent LCA evidence does not guarantee sponsorship or transfer support for every requisition; confirm in the posting or recruiter screen.",
+      "notes": "Excluded from monitoring at the user's request. Employer-level recent LCA evidence is retained for research only and does not guarantee sponsorship or transfer support for any requisition.",
       "research_batch": "A",
       "sector": ""
     },

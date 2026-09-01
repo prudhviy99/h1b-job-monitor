@@ -1,14 +1,14 @@
 # H-1B-friendly software job monitor
 
-This project discovers newly posted US software-engineering roles from official employer career sources, then applies conservative gates for the candidate's current background: Capital One Java/Spring Boot and Python/FastAPI services; AWS Shield, backend and distributed systems, Kinesis telemetry, DynamoDB/RDS, multi-region infrastructure, security, and SRE/operations; plus project-backed WebFlux/Redis/NGINX and AI incident-triage experience. The profile represents roughly 3.75 years of relevant US experience as of August 2026.
+This project discovers newly posted US software-engineering roles from official employer career sources, then applies conservative gates for the candidate's current background: Capital One Java/Spring Boot and Python/FastAPI services; AWS Shield, backend and distributed systems, Kinesis telemetry, DynamoDB/RDS, multi-region infrastructure, security, and SRE/operations; plus project-backed WebFlux/Redis/NGINX and AI incident-triage experience. The profile represents roughly 3.75 years of relevant US experience as of August 31, 2026.
 
 It is deliberately not a LinkedIn scraper, job aggregator, auto-apply tool, or claim that a company will sponsor every role.
 
 ## What is included
 
 - A quality-screened universe of **149 direct employers**, with official career URLs, legal-employer matching, recent DOL LCA evidence, confidence, filing counts, role-fit tags, and caveats.
-- **63 enabled official sources** (34 Greenhouse, 16 reviewed sitemap/JSON-LD feeds, 7 Ashby, 3 SmartRecruiters, 2 Lever, and Amazon Jobs); 86 additional employers remain visible as conservative research-only coverage.
-- Read-only connectors for Greenhouse, Lever, Ashby, SmartRecruiters, Amazon Jobs, Workday (disabled until explicit per-tenant access approval), sitemap + `JobPosting` JSON-LD, and fixed JSON-LD page sets.
+- **62 enabled official sources** (34 Greenhouse, 16 reviewed sitemap/JSON-LD feeds, 7 Ashby, 3 SmartRecruiters, and 2 Lever); 87 additional employers remain visible as conservative research-only coverage. Amazon is explicitly disabled at the user's request.
+- Read-only connectors for Greenhouse, Lever, Ashby, SmartRecruiters, Workday (disabled until explicit per-tenant access approval), sitemap + `JobPosting` JSON-LD, and fixed JSON-LD page sets. The Amazon connector remains tested but is disabled in the company configuration.
 - Exact first-run semantics: only matches with a supported posting date from the previous seven days.
 - Incremental semantics: only unseen stable IDs or verified reposts whose posting date advanced; content-only edits are not emitted as new jobs.
 - SQLite persistence, cross-run deduplication, HTTP ETag/Last-Modified caching, rate limiting, retries with backoff, robots checks, response-size limits, source health, and graceful per-company failure handling.
@@ -35,7 +35,7 @@ PYTHONPATH=src python3 -m h1b_job_monitor crawl \
   --state data/smoke.sqlite \
   --output-dir reports/smoke \
   --mode initial \
-  --company amazon --company datadog --company ramp --company palantir --company servicenow
+  --company datadog --company ramp --company palantir --company servicenow --company zscaler
 ```
 
 ## Output contract
@@ -69,9 +69,9 @@ The monitor fingerprints the relevance-affecting profile. When matching rules ch
 
 The monitor requires an actual software-engineering role shape plus professionally evidenced Java, Python, AWS, backend/distributed-systems, security, or API work. Bare words such as “platform” or “backend” cannot rescue customer, product, advocacy, administration, or generic systems roles. Operations-oriented SRE/platform/infrastructure/security titles also require software-development evidence. Explicit ATS department scope is used to reject frontend/mobile/QA/data-science/robotics work; software work on ML platform or infrastructure may survive but remains capped below P0. A narrowly aligned streaming/real-time/telemetry Data Engineer role can survive, but ordinary data-engineering roles do not.
 
-The monitor also rejects internships, new-grad/entry-level and level-I roles, managers/directors, staff/principal/architect/lead and common L6/IC6/E6+ roles, clearly unrelated frontend/mobile/data-science/pure-ML/test/support roles, federal/citizenship/clearance-restricted roles, non-US or unverifiable locations, and roles requiring more than five years.
+The monitor also rejects internships, new-grad/entry-level and level-I roles, managers/directors, staff/principal/architect/lead and common L6/IC6/E6+ roles, clearly unrelated frontend/mobile/data-science/pure-ML/test/support roles, federal/citizenship/clearance-restricted roles, non-US or unverifiable locations, and roles requiring more than four years.
 
-`Senior` is not automatically rejected. A Senior role survives only when the description supplies a verifiable experience floor of five years or less. A Senior role with no parseable experience floor is rejected.
+`Senior` is not automatically rejected. A Senior role survives only when the description supplies a verifiable experience floor of four years or less. A Senior role with no parseable experience floor is rejected.
 
 Posting-level language such as “without current or future sponsorship” overrides company filing history and causes rejection. Explicit sponsorship availability boosts confidence. Silence in the posting is not treated as proof either way.
 

@@ -148,6 +148,7 @@ class RankingTests(unittest.TestCase):
             "MTS I",
             "Graduate Software Engineer",
             "Recent Graduate Software Engineer",
+            "New College Grad - Software Engineer",
             "Software Engineer Trainee",
             "Software Engineer, Early Talent",
             "Software Engineer, Emerging Talent",
@@ -347,7 +348,7 @@ class RankingTests(unittest.TestCase):
         )
         self.assertFalse(self.ranker.evaluate(value, company(), self.now).accepted)
 
-    def test_early_career_band_and_five_year_floor_are_capped_at_p2(self):
+    def test_early_career_band_and_five_year_floor_are_rejected(self):
         early = job(
             title="Software Engineer, Data Platform",
             description=(
@@ -356,8 +357,8 @@ class RankingTests(unittest.TestCase):
             ),
         )
         early_decision = self.ranker.evaluate(early, company(), self.now)
-        self.assertTrue(early_decision.accepted, early_decision.rejection_reasons)
-        self.assertEqual(early_decision.priority, "P2")
+        self.assertFalse(early_decision.accepted)
+        self.assertIn("experience range is an early-career band (1-3 years)", early_decision.rejection_reasons)
 
         stretch = job(
             title="Software Development Engineer, Kinesis Streams",
@@ -367,8 +368,8 @@ class RankingTests(unittest.TestCase):
             ),
         )
         stretch_decision = self.ranker.evaluate(stretch, company(), self.now)
-        self.assertTrue(stretch_decision.accepted, stretch_decision.rejection_reasons)
-        self.assertEqual(stretch_decision.priority, "P2")
+        self.assertFalse(stretch_decision.accepted)
+        self.assertIn("requires about 5+ years", stretch_decision.rejection_reasons)
 
         two_year = job(
             title="Software Engineer II, Backend Platform",
@@ -791,6 +792,41 @@ class RankingTests(unittest.TestCase):
                     self.now,
                 )
                 self.assertTrue(aligned.accepted, aligned.rejection_reasons)
+
+    def test_false_positive_classes_from_weekly_audit_are_rejected(self):
+        descriptions = (
+            "Build Python backend services. Architect medical robots and mechatronic instrumentation "
+            "using motion control and FDA requirements. Requires 3+ years.",
+            "Build Python network tooling. Develop functional test plan, execute test cases, automate "
+            "test cases for regression using networking test equipment. Requires 4+ years.",
+            "Build AWS cloud services. Advanced programming skills in Golang are required, with "
+            "Kubernetes, CSI, and PV/PVC experience. Requires 3+ years.",
+            "Requires 3+ years of professional full-stack software engineering experience shipping "
+            "production systems in Go and TypeScript/React with Next.js.",
+            "Requires 4+ years of platform engineering. Hands-on experience with Google Cloud Platform "
+            "and experience building and scaling AI agents are required.",
+            "Basic programming skills in Java. You will work closely with senior developers and learn "
+            "from senior engineers.",
+            "Experience in software development, including internships, co-ops, apprenticeships, "
+            "academic projects, or professional experience.",
+            "Requires 1+ years with Generative AI and LLM-based systems, shipping product features "
+            "to production.",
+            "Requires 4+ years of experience designing, building, and supporting enterprise software "
+            "applications. Hands-on experience with at least one of the following areas: agentic systems, "
+            "retrieval-augmented generation, generative AI, or large language model applications.",
+            "Bachelor's Degree and 1+ year(s) technical engineering experience, or Master's Degree in "
+            "Computer Science or related technical field with proven experience coding.",
+        )
+        for description in descriptions:
+            with self.subTest(description=description):
+                decision = self.ranker.evaluate(
+                    job(title="Software Engineer II", description=description), company(), self.now
+                )
+                self.assertFalse(decision.accepted)
+                self.assertIn(
+                    "posting requires a specialist domain not established by the resume",
+                    decision.rejection_reasons,
+                )
 
     def test_ai_platform_is_secondary_but_pure_ai_and_ml_roles_stay_rejected(self):
         platform = job(

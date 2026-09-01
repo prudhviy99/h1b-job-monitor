@@ -20,6 +20,7 @@ CONFIDENCE_SCORE = {
     "low": 0.45,
     "historical": 0.30,
 }
+USER_EXCLUDED_COMPANIES = {"Amazon"}
 
 TARGET_SLUG_REGEX = (
     r"software|backend|back-end|platform|infrastructure|security|site-reliability|"
@@ -362,6 +363,18 @@ def merge(primary: Dict[str, Any], secondary: Dict[str, Any]) -> Dict[str, Any]:
     return primary
 
 
+def apply_user_exclusions(companies: Iterable[Dict[str, Any]]) -> None:
+    """Make explicit user exclusions the final authority over regenerated sources."""
+    for item in companies:
+        if item["name"] in USER_EXCLUDED_COMPANIES:
+            item["enabled"] = False
+            item["monitor_status"] = "disabled-by-user"
+            item["connector"]["access_policy"] = "disabled"
+            item["notes"] = " ".join(dict.fromkeys(filter(None, (
+                "Excluded from monitoring at the user's request.", item.get("notes", "")
+            ))))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch-a", type=Path, required=True)
@@ -407,6 +420,9 @@ def main() -> None:
             "access_review": source["access_review"],
             "default_country": "US",
         })
+
+    # Explicit user exclusions override all connector discovery and survive regeneration.
+    apply_user_exclusions(companies.values())
 
     ordered = sorted(companies.values(), key=lambda x: (-x["sponsorship"]["score"], x["name"]))
 
