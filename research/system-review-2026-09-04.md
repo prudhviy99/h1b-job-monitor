@@ -47,4 +47,12 @@ The three new connectors reuse existing matched legal-employer LCA records; no n
 
 ## Practical limits
 
+## Verification result
+
+The final [hosted run](https://github.com/prudhviy99/h1b-job-monitor/actions/runs/33946885593), started September 4 at 10:19 PM Pacific, completed successfully with 65/65 enabled sources, 12,945 fetched records, 36 queue candidates across 21 employers, and zero duplicate job keys, Amazon roles, or extracted required experience floors above four years in the queue. It emitted zero repeated alerts on this follow-up run. State checkpoint, durable backup upload, cache save, report upload, queue publication and status update all succeeded. The Starbucks failure recovered and its alert closed. All 141 tests passed. A local browser check confirmed the HTML queue rendered without horizontal overflow and its company search filtered correctly.
+
+Of the 50 candidates in the initial local backlog, 14 were removed during the final qualification review. The 36 remaining candidates are a rolling backlog, not 36 newly posted or unapplied jobs. Matching remains heuristic and cannot establish every employer's unstated selection criteria.
+
+## Remaining limits
+
 This system cannot truthfully guarantee 30 new sponsor-compatible mid-level vacancies every day, or 30 submissions in an hour on arbitrary employer forms. It can remove repeated discovery work, retain a useful backlog, and rank the next application batch. Application speed must be measured separately using autofill. Rejection causes require application-level outcomes; they cannot be inferred from crawler health or a match score.

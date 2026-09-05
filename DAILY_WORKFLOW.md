@@ -1,6 +1,6 @@
 # A 60-minute daily application workflow
 
-Target **30–35 completed applications on days with enough eligible openings**. Do not substitute unsuitable jobs to satisfy a counter. Thirty applications in fifty minutes allows 100 seconds per form; thirty-five allows 86 seconds. Manual Workday account creation and custom essays will often exceed that budget. The workflow depends on autofill, a prepared profile, and a ready queue.
+Target **32–35 completed applications on days with enough eligible openings**. Do not substitute unsuitable jobs to satisfy a counter. Thirty-two applications in fifty minutes allows about 94 seconds per form; thirty-five allows 86 seconds. Manual Workday account creation and custom essays will often exceed that budget. The workflow depends on autofill, a prepared profile, and a ready queue.
 
 ## One-time setup
 
@@ -15,7 +15,7 @@ Target **30–35 completed applications on days with enough eligible openings**.
 | Time | Action |
 |---|---|
 | 0–5 min | Open the application queue. Scan newest/high-fit jobs and remove already-applied requisitions using your private tracker. Open a small batch of official application tabs. |
-| 5–55 min | Autofill, review required answers and employer/role/location, submit, and let the tracker record the application. Work through batches of five. Aim for 30–35 total when the queue and form speed allow it. |
+| 5–55 min | Autofill, review required answers and employer/role/location, submit, and let the tracker record the application. Work through batches of five. Aim for 32–35 total when the queue and form speed allow it. |
 | 55–60 min | Check tracking, record any rejection/screening outcomes, and note whether the bottleneck was too few jobs or slow forms. Close the search tabs. |
 
 If the queue is short, use up to five minutes of the application block for HiringCafe or official employer alerts, then Jobright. LinkedIn is optional overflow; avoid browsing its general feed. Open the original employer requisition before applying. Prefer jobs from the last 48 hours, then 3–7 days, then clearly live 8–30-day backlog. Date-unknown jobs belong last, not in a fake "posted today" bucket.
