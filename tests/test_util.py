@@ -38,6 +38,10 @@ class UtilTests(unittest.TestCase):
     def test_canonical_url_removes_tracking(self):
         self.assertEqual(canonical_url("https://EXAMPLE.com/job/1/?utm_source=x&ref=abc"), "https://example.com/job/1?ref=abc")
 
+    def test_nested_escaped_html_is_plain_text(self):
+        self.assertEqual(strip_html("&amp;lt;p&amp;gt;Requires &amp;lt;b&amp;gt;5+ years&amp;lt;/b&amp;gt; of Java experience.&amp;lt;/p&amp;gt;"),
+                         "Requires 5+ years of Java experience.")
+
 
 if __name__ == "__main__":
     unittest.main()

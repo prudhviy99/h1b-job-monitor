@@ -55,6 +55,31 @@ class RankingTests(unittest.TestCase):
         self.assertTrue(decision.accepted, decision.rejection_reasons)
         self.assertIn(decision.priority, {"P0", "P1"})
 
+    def test_generic_titles_do_not_hide_unverified_required_specialties(self):
+        for text in (
+            'Own full-stack features end-to-end.',
+            '3+ years of full stack software engineering experience.',
+            'Shipped an LLM-powered feature to real users.',
+            'Experience with MCP, agent frameworks, or tool-calling architectures in production.',
+            '2 years of experience employing advanced AI toolsets to accelerate development.',
+            'Strong hands‑on experience with containers and Kubernetes in production environments.',
+            'Design, implement, test feature and OS improvements in the latest Windows OS.',
+            '2+ years shipping A/B tests end-to-end in production.',
+        ):
+            with self.subTest(text=text):
+                d = self.ranker.evaluate(job(title='Software Engineer', description='Build Java backend services on AWS. Requires 3+ years of experience. '+text), company(), self.now)
+                self.assertFalse(d.accepted, text)
+        for optional in ('Preferred Qualifications', 'Preferred Qualifications:'):
+            text = 'Build Java backend services on AWS. Minimum qualifications: 3+ years of experience. '+optional+' Experience with MCP in production.'
+            self.assertTrue(self.ranker.evaluate(job(description=text), company(), self.now).accepted)
+
+    def test_escaped_required_years_and_language_or_do_not_lower_degree_floor(self):
+        d = self.ranker.evaluate(job(description='Build Java distributed services on AWS. &lt;p&gt;Requires &lt;b&gt;5+ years&lt;/b&gt; of software engineering experience.&lt;/p&gt;'), company(), self.now)
+        self.assertFalse(d.accepted)
+        self.assertEqual(d.min_years, 5)
+        text = "Master's Degree in Computer Science AND 6+ years technical engineering experience with coding in Java, JavaScript, or Python OR equivalent experience."
+        self.assertEqual(extract_years(text)[0], 6)
+
     def test_senior_without_years_rejected(self):
         value = job(description="Build Java distributed services on AWS.")
         decision = self.ranker.evaluate(value, company(), self.now)

@@ -167,10 +167,13 @@ class HostRateLimiter:
 class RobotsGate:
     """Caches robots rules. A fetch failure is recorded as unknown, not as permission."""
 
-    def __init__(self, user_agent: str, limiter: HostRateLimiter, timeout: float = 15.0) -> None:
+    def __init__(self, user_agent: str, limiter: HostRateLimiter, timeout: float = 15.0,
+                 max_retries: int = 2) -> None:
         self.user_agent = user_agent
         self.limiter = limiter
         self.timeout = timeout
+        self.max_retries = max(0, min(max_retries, 2))
+        self._errors: Dict[str, str] = {}
         self._cache: Dict[str, Optional[_RobotsRules]] = {}
         self._lock = threading.Lock()
 
@@ -190,30 +193,50 @@ class RobotsGate:
             parser = self._cache.get(origin)
         if not known:
             robots_url = f"{origin}/robots.txt"
-            try:
-                self.limiter.wait(robots_url)
-                request = urllib.request.Request(
-                    robots_url,
-                    headers={"User-Agent": self.user_agent, "Accept": "text/plain,*/*;q=0.1"},
-                )
-                with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                    text = response.read(1_000_000).decode("utf-8", errors="replace")
-                parser = _RobotsRules(text)
-            except urllib.error.HTTPError as exc:
-                if exc.code in (401, 403):
-                    parser = _RobotsRules("User-agent: *\nDisallow: /")
-                elif exc.code == 404:
-                    parser = _RobotsRules("User-agent: *\nDisallow:")
-                else:
-                    parser = None
-            except Exception as exc:
-                LOGGER.warning("Could not retrieve robots.txt for %s: %s", origin, exc)
-                parser = None
+            for attempt in range(self.max_retries + 1):
+                delay = 2 ** (attempt + 1)
+                try:
+                    self.limiter.wait(robots_url)
+                    request = urllib.request.Request(
+                        robots_url,
+                        headers={"User-Agent": self.user_agent, "Accept": "text/plain,*/*;q=0.1"},
+                    )
+                    with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                        text = response.read(1_000_000).decode("utf-8", errors="replace")
+                    parser = _RobotsRules(text)
+                    break
+                except urllib.error.HTTPError as exc:
+                    self._errors[origin] = f"HTTP {exc.code}"
+                    if exc.code in (401, 403):
+                        parser = _RobotsRules("User-agent: *\nDisallow: /")
+                        break
+                    if exc.code == 404:
+                        parser = _RobotsRules("User-agent: *\nDisallow:")
+                        break
+                    if exc.code not in {408, 425, 429, 500, 502, 503, 504}:
+                        break
+                    retry_after = exc.headers.get("Retry-After", "") if exc.headers else ""
+                    if retry_after:
+                        try:
+                            delay = max(delay, float(retry_after))
+                        except ValueError:
+                            # A long or unparsed server cooldown is not permission to retry early.
+                            break
+                        if delay > 30:
+                            break
+                except (OSError, http_client.HTTPException) as exc:
+                    self._errors[origin] = f"{type(exc).__name__}: {exc}"
+                except Exception as exc:
+                    self._errors[origin] = f"{type(exc).__name__}: {exc}"
+                    break
+                if attempt < self.max_retries:
+                    LOGGER.warning("Retrying unavailable robots.txt for %s (%s)", origin, self._errors.get(origin))
+                    time.sleep(delay)
             with self._lock:
                 self._cache[origin] = parser
 
         if parser is None:
-            return False, "robots.txt unavailable; strict policy skipped source"
+            return False, f"robots.txt unavailable ({self._errors.get(origin, 'unknown error')}); strict policy skipped source"
         allowed = parser.can_fetch(self.user_agent, url)
         return allowed, "allowed by robots.txt" if allowed else "disallowed by robots.txt"
 
@@ -236,7 +259,7 @@ class HttpClient:
         self.max_retries = max_retries
         self.max_response_bytes = max_response_bytes
         self.limiter = HostRateLimiter(min_interval_seconds)
-        self.robots = RobotsGate(user_agent, self.limiter, timeout_seconds)
+        self.robots = RobotsGate(user_agent, self.limiter, timeout_seconds, max_retries)
         self._local = threading.local()
 
     @property

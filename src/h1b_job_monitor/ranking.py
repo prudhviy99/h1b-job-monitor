@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .models import Company, Decision, Job
+from .util import strip_html
 
 
 INTERNSHIP = re.compile(r"\b(intern(ship)?|co-?op|apprentice)\b", re.I)
@@ -528,6 +529,35 @@ TITLE_SCORE_RULES: Sequence[Tuple[str, int, str]] = (
 )
 
 
+REQUIRED_SCOPE_PATTERNS = (
+    ("full-stack/frontend ownership", re.compile(
+        r"\b(?:develop\w*|build\w*|own\w*|operate|prototyp\w*)\b[^.!;]{0,65}\bfull[- ]?stack"
+        r"(?:\s+(?:features?|applications?|products?|systems?|capabilities|services?)\b|,\s*from)|"
+        r"\bfull[- ]?stack\b[^.!;]{0,45}\b(?:experience|fundamentals)\b|"
+        r"\bexperience\s+(?:of|in|with)\s+full[- ]?stack\b|"
+        r"\bexperience\s+building\s+and\s+shipping\s+features\s+that\s+utilize\s+frontend\s+frameworks\b",
+        re.I)),
+    ("production AI delivery beyond project evidence", re.compile(
+        r"\bshipped\b[^.!;]{0,70}\bLLM[- ]powered\b[^.!;]{0,60}\breal users\b|"
+        r"\bexperience\s+(?:with|in)\s+(?:MCP|agent frameworks|tool[- ]calling architectures)"
+        r"[^.!;]{0,70}\bin production\b|"
+        r"\bexperience\s+(?:building\s+and\s+shipping|applying)\s+(?:AI|agentic)"
+        r"[^.!;]{0,80}\bproduction\b",
+        re.I)),
+    ("device/operating-system specialization", re.compile(
+        r"\b(?:design|implement|test|develop)\b[^.!;]{0,70}\b(?:latest Windows OS|Windows Compatibility)\b|"
+        r"\bexperience developing in C\+\+ and working with Windows\b|"
+        r"\b(?:GPU API|graphics processing unit \(GPU\) API) knowledge\b",
+        re.I)),
+    ("production Kubernetes depth not evidenced", re.compile(
+        r"\bstrong\s+hands[- ]on\s+experience\b[^.!;]{0,65}\bKubernetes\s+in production\b",
+        re.I)),
+    ("growth-experimentation specialization", re.compile(
+        r"\b\d+\+?\s+years\s+shipping\s+A/B\s+tests\s+end[- ]to[- ]end\s+in production\b",
+        re.I)),
+)
+
+
 def _preferred_requirement(text: str, start: int, end: int) -> bool:
     prefix = text[max(0, start - 100) : start].lower()
     suffix = text[end : min(len(text), end + 60)].lower()
@@ -552,8 +582,8 @@ def _preferred_requirement(text: str, start: int, end: int) -> bool:
     inline_headings = list(
         re.finditer(
             r"\b(preferred|minimum|required|basic|must[- ]have)\s+"
-            r"(?:qualifications?|experience|skills?|requirements?)\b\s*:|"
-            r"\b(nice to have)\b\s*:",
+            r"(?:qualifications?|experience|skills?|requirements?)\b\s*:?|"
+            r"\b(nice to have)\b\s*:?",
             inline_section_prefix,
             re.I,
         )
@@ -625,6 +655,8 @@ def _looks_like_experience_requirement(text: str, start: int, end: int) -> bool:
         return False
     if re.search(r"\b(?:founded|established|incorporated|vest|vesting|benefit)\b", local):
         return False
+    if re.search(r"\b(?:has|have)\s+(?:operated|existed|served)\s+for\s*$", prefix):
+        return False
     if re.search(
         r"\b(?:we|our\s+team|the\s+team|our\s+company|the\s+company|our\s+product|the\s+product)\s+"
         r"(?:has|have|brings?|offers?|possesses?)\s*$",
@@ -650,7 +682,7 @@ def _looks_like_experience_requirement(text: str, start: int, end: int) -> bool:
         re.match(
             r"\s*(?:of\s+)?(?:(?:relevant|professional|industry|hands[- ]on|equivalent|"
             r"demonstrated|proven)\s*,?\s*)*"
-            r"(?:experience|software|engineering|development|developing|programming|coding|backend|platform|"
+            r"(?:experience|software|engineering|development|developing|building|operating|shipping|programming|coding|backend|platform|"
             r"infrastructure|security|Java|Python|AWS|Kafka|Kinesis|GraphQL|Redis|Docker|ECS|"
             r"Prometheus|Grafana|OpenTelemetry|NGINX|working\s+with\b|with\b|in\b)",
             suffix,
@@ -876,6 +908,15 @@ def _degree_alternative_adjusted(
         if (
             abs(extra_requirement.low - degree_requirement.low) >= 1
             and extra_requirement.low >= degree_requirement.low
+            # "... JavaScript, or Python OR equivalent experience" is a
+            # coding-language alternative, not a no-degree experience route.
+            and no_degree_pattern.search(text[extra_requirement.end:right_boundary])
+            and not re.search(
+                r"\b(?:bachelor|master)'?s?\s+(?:degree\s+)?"
+                r"(?:in\s+.{0,70}?)?(?:and|with|\+)\s*$",
+                text[max(left_boundary, extra_requirement.start - 160):extra_requirement.start],
+                re.I,
+            )
         ):
             retained.remove(extra_requirement)
     return retained
@@ -952,7 +993,7 @@ def _secondary_technology_overages(
                     r"|"
                     r"(?:(?:relevant|professional|hands[- ]on|industry)\s+)?"
                     r"(?:(?:(?:software|backend|application)\s+)?(?:development\s+)?experience\s+)?"
-                    r"(?:developing|building|designing|operating|implementing|maintaining|working\s+with)\s+"
+                    r"(?:developing|building|designing|operating|implementing|maintaining|employing|shipping|working\s+with)\s+"
                     r"(?:[A-Za-z0-9+#./-]+\s+){0,7}(?:(?:with|in|using|of)\s*)?"
                     r")[:,-]?\s*",
                     between,
@@ -1336,6 +1377,9 @@ class Ranker:
     def evaluate(self, job: Job, company: Company, now: Optional[datetime] = None) -> Decision:
         now = now or datetime.now(timezone.utc)
         title = job.title.strip()
+        if re.search(r"<[/A-Za-z]|&(?:amp;|lt;|gt;|#)", job.description):
+            job.description = strip_html(job.description)
+        job.description = job.description.translate(dict.fromkeys(range(0x2010, 0x2016), ord('-')))
         text = f"{title}\n{job.department}\n{job.description}"
         role_metadata = f"{job.employment_type}\n{job.department}"
         rejection: List[str] = []
@@ -1394,6 +1438,10 @@ class Ranker:
             rejection.append("streaming data-engineer title lacks software-development evidence")
         if self.unsupported_specialization_evidence.search(job.description):
             rejection.append("posting requires a specialist domain not established by the resume")
+        for label, pattern in REQUIRED_SCOPE_PATTERNS:
+            if any(not _preferred_requirement(job.description, m.start(), m.end())
+                   for m in pattern.finditer(job.description)):
+                rejection.append(f"posting requires {label}")
 
         loc_status = location_status(job, company)
         if self.require_us_location:

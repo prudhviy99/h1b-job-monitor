@@ -96,6 +96,14 @@ class _TextExtractor(HTMLParser):
 def strip_html(value: Any) -> str:
     if value is None:
         return ""
+    # Greenhouse content is sometimes HTML-escaped twice. Decode before
+    # parsing so tags do not survive as text and interrupt qualification rules.
+    value = str(value)
+    for _ in range(3):
+        decoded = html.unescape(value)
+        if decoded == value:
+            break
+        value = decoded
     parser = _TextExtractor()
     try:
         parser.feed(str(value))

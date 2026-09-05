@@ -18,6 +18,10 @@ Explicit expired application deadlines and closed/unlisted flags are checked. A 
 
 The new resume is identified by its filename and SHA-256 in the profile. The experience ceiling stays four years; Amazon remains disabled. Public artifacts contain no resume file, contact details, conversation excerpts, or application history.
 
+The live backlog review also exposed nested HTML escaping, Unicode hyphens, a degree/language-OR parsing ambiguity, and generic software titles masking full-stack, production-AI, hardware/OS or growth-experimentation requirements. Regression checks now cover those cases. Explicit required production specialization is distinguished from optional preferences; merely collaborating with frontend engineers remains acceptable. AI project work does not establish multiple years of production AI delivery.
+
+The first hosted verification saved state and published both alert and queue issues, but reported a Starbucks robots.txt retrieval failure. Robots retrieval now retries only temporary network/server failures, at most twice; explicit 401/403 denials are not retried or bypassed, and long server cooldowns remain fail-closed. Exhausted failures report the underlying error. The local comparison crawl completed 65/65 sources; that is an observation, not a promise of permanent source availability.
+
 ## Source checks and boundaries
 
 | Employer/source | September 4 check | Outcome |
