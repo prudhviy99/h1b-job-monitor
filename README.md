@@ -1,24 +1,27 @@
 # H-1B-friendly software job monitor
 
-This project discovers newly posted US software-engineering roles from official employer career sources, then applies conservative gates for the candidate's current background: Capital One Java/Spring Boot and Python/FastAPI services; AWS Shield, backend and distributed systems, Kinesis telemetry, DynamoDB/RDS, multi-region infrastructure, security, and SRE/operations; plus project-backed WebFlux/Redis/NGINX and AI incident-triage experience. The profile represents roughly 3.75 years of relevant US experience as of August 31, 2026.
+This project discovers US software-engineering roles from official employer career sources and maintains both deduplicated new-job alerts and a rolling application queue. The September 4 resume profile emphasizes Java/Spring Boot and Python/FastAPI services; AWS Shield, backend and distributed systems, Kinesis telemetry, DynamoDB/RDS, multi-region infrastructure, security, and SRE/operations; plus project-backed WebFlux/Redis/NGINX and AI incident-triage experience. It conservatively represents roughly 3.75 years of relevant experience.
 
 It is deliberately not a LinkedIn scraper, job aggregator, auto-apply tool, or claim that a company will sponsor every role.
 
 ## What is included
 
 - A quality-screened universe of **149 direct employers**, with official career URLs, legal-employer matching, recent DOL LCA evidence, confidence, filing counts, role-fit tags, and caveats.
-- **62 enabled official sources** (34 Greenhouse, 16 reviewed sitemap/JSON-LD feeds, 7 Ashby, 3 SmartRecruiters, and 2 Lever); 87 additional employers remain visible as conservative research-only coverage. Amazon is explicitly disabled at the user's request.
+- **65 enabled official sources** (35 Greenhouse, 16 reviewed sitemap/JSON-LD feeds, 7 Ashby, 4 SmartRecruiters, 2 Lever, and 1 reviewed Workday tenant); 84 additional employers remain research-only or explicitly excluded. Amazon is disabled at the user's request.
 - Read-only connectors for Greenhouse, Lever, Ashby, SmartRecruiters, Workday (disabled until explicit per-tenant access approval), sitemap + `JobPosting` JSON-LD, and fixed JSON-LD page sets. The Amazon connector remains tested but is disabled in the company configuration.
 - Exact first-run semantics: only matches with a supported posting date from the previous seven days.
 - Incremental semantics: only unseen stable IDs or verified reposts whose posting date advanced; content-only edits are not emitted as new jobs.
 - SQLite persistence, cross-run deduplication, HTTP ETag/Last-Modified caching, rate limiting, retries with backoff, robots checks, response-size limits, source health, and graceful per-company failure handling.
 - Configurable title, seniority, years-of-experience, role-family, skill, location, sponsorship, and freshness ranking.
 - CSV, JSON, Markdown, and a readable HTML report.
+- A separate 30-day application queue from records seen in the current crawl, including suitable backlog, grouped Greenhouse requisitions, deadline checks, clear uncertain-date labels, and an employer-diverse first batch. [Daily workflow](DAILY_WORKFLOW.md) and [system audit](research/system-review-2026-09-04.md).
 - macOS `launchd`, cron, and GitHub Actions scheduler options. None is silently activated by the files alone.
 
 ## Quick start
 
 Python 3.9 or newer is enough; the monitor has no third-party runtime dependencies.
+
+For daily use, open the GitHub issue labeled **h1b-application-queue**. It is updated after every actual crawl, including runs with no new alerts. Download that run's report artifact for `application-queue.html` (searchable), `.csv`, or `.json`. The queue includes previous alerts: use a private application tracker to exclude jobs already submitted. It does not infer whether you applied. Records absent from the current crawl are omitted; this is not a promise of complete 30-day coverage from every date-prefiltered connector.
 
 ```bash
 cd /absolute/path/to/h1b-job-monitor
@@ -112,7 +115,7 @@ The workflow targets **07:17 and 19:17 America/Los_Angeles**, including daylight
 
 This repository is intentionally public. Its workflow definition, run logs, job summaries, match/failure issues, repository owner, and legacy local launcher/package identifiers are therefore public. The checked-in matching profile contains only generalized experience and skill evidence; the resume file, contact details, and local SQLite database are excluded. Each run retains the report artifact for 30 days and creates an owner-assigned public issue for new P0/P1/P2 matches.
 
-Open the issue labeled **h1b-monitor-status** first. It stays open and shows the last wake-up separately from the last actual crawl, source counts, latest outcome, new-match count (including zero), due window, and recent history. Its timestamp is a snapshot: if it stops advancing, do not mistake the old “healthy” label for a live guarantee. This scheduler cannot send an alert while all of its own triggers have stopped.
+The issue labeled **h1b-monitor-status** shows the last wake-up separately from the last actual crawl, source counts, latest outcome, new-match count (including zero), due window, and recent history. It links to the application queue. Its timestamp is a snapshot: if it stops advancing, do not mistake the old “healthy” label for a live guarantee. This scheduler cannot send an alert while all of its own triggers have stopped.
 
 Issues labeled **h1b-monitor-match** contain jobs and are never auto-closed. Issues labeled **h1b-monitor-failure** describe operational problems; recovery closes them with a link to the successful run. Closure does not delete or retract any jobs. All new issue dates and visible crawl timestamps use Pacific time. Expedia and other sites can intermittently deny hosted requests; the crawler stops that source's detail requests on 401/403, preserves its cursor, and reports the failure without bypassing access controls.
 

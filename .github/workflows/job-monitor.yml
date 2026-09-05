@@ -203,6 +203,13 @@ jobs:
             fi
           fi
 
+      - name: Publish rolling application queue
+        id: queue
+        if: ${{ always() && steps.cadence.outputs.should_run == 'true' && steps.summary.outcome == 'success' && hashFiles('reports/application-queue.json') != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/github_queue.py
+
       - name: Prepare checked recovery backup
         id: backup-prepare
         if: ${{ always() && steps.cadence.outputs.should_run == 'true' && steps.checkpoint.outcome == 'success' && steps.summary.outcome == 'success' && steps.notify.outcome == 'success' }}
@@ -304,6 +311,7 @@ jobs:
           CHECKPOINT: ${{ steps.checkpoint.outcome }}
           SUMMARY: ${{ steps.summary.outcome }}
           NOTIFY: ${{ steps.notify.outcome }}
+          QUEUE: ${{ steps.queue.outcome }}
           SAVE: ${{ steps.state-save.outcome }}
           BACKUP_PREPARE: ${{ steps.backup-prepare.outcome }}
           BACKUP_UPLOAD: ${{ steps.backup-upload.outcome }}
@@ -313,7 +321,7 @@ jobs:
             --step-outcome "State restore=$RESTORE" --step-outcome "State recovery=$RECOVER" \
             --step-outcome "Cadence=$CADENCE" --step-outcome "Validation=$VALIDATE" \
             --step-outcome "Crawl=$CRAWL" --step-outcome "Checkpoint=$CHECKPOINT" \
-            --step-outcome "Summary=$SUMMARY" --step-outcome "Notifications=$NOTIFY" \
+            --step-outcome "Summary=$SUMMARY" --step-outcome "Notifications=$NOTIFY" --step-outcome "Application queue=$QUEUE" \
             --step-outcome "State save=$SAVE" --step-outcome "Backup=$BACKUP_PREPARE" \
             --step-outcome "Backup upload=$BACKUP_UPLOAD" --step-outcome "Report upload=$UPLOAD"
 
@@ -328,6 +336,7 @@ jobs:
             steps.checkpoint.outcome == 'failure' ||
             steps.summary.outcome == 'failure' ||
             steps.notify.outcome == 'failure' ||
+            steps.queue.outcome == 'failure' ||
             steps.state-save.outcome == 'failure' ||
             steps.upload.outcome == 'failure' ||
             steps.backup-prepare.outcome == 'failure' ||

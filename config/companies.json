@@ -3,7 +3,8 @@
   "generated_from": [
     "research/source_pass_a.csv",
     "research/source_pass_b.csv",
-    "research/coverage_expansion_audit.csv"
+    "research/coverage_expansion_audit.csv",
+    "config/source_overrides.json"
   ],
   "evidence_warning": "DOL-certified LCAs are employer-level evidence and do not prove USCIS petition approval, current hiring, or sponsorship availability for an individual requisition.",
   "companies": [
@@ -486,14 +487,21 @@
       "name": "Arista Networks",
       "domain": "arista.com",
       "careers_url": "https://www.arista.com/en/careers/job-openings",
-      "enabled": false,
+      "enabled": true,
       "connector": {
-        "type": "manual",
-        "ats_observed": "custom",
-        "identifier": "",
-        "default_country": "US"
+        "type": "smartrecruiters",
+        "company_identifier": "AristaNetworks",
+        "access_policy": "documented_public_api",
+        "max_pages": 10,
+        "max_detail_requests": 100,
+        "default_country": "",
+        "access_review": "2026-09-04: Arista-branded official SmartRecruiters board and API employer identity verified; documented public Posting API GET only.",
+        "evidence_urls": [
+          "https://careers.smartrecruiters.com/AristaNetworks",
+          "https://developers.smartrecruiters.com/docs/posting-api"
+        ]
       },
-      "monitor_status": "research-only-no-safe-connector-yet",
+      "monitor_status": "enabled-reviewed-public-api",
       "sponsorship": {
         "confidence": "high",
         "score": 0.82,
@@ -2109,14 +2117,22 @@
       "name": "General Motors",
       "domain": "gm.com",
       "careers_url": "https://search-careers.gm.com/en/jobs/",
-      "enabled": false,
+      "enabled": true,
       "connector": {
-        "type": "manual",
-        "ats_observed": "phenom",
-        "identifier": "https://search-careers.gm.com/en/jobs/",
-        "default_country": "US"
+        "type": "workday",
+        "host": "generalmotors.wd5.myworkdayjobs.com",
+        "tenant": "generalmotors",
+        "site": "Careers_GM",
+        "access_policy": "strict",
+        "access_approved": true,
+        "crawl_delay_seconds": 3,
+        "max_pages": 60,
+        "max_detail_requests": 100,
+        "default_country": "",
+        "terms_url": "https://www.gm.com/user-guidelines",
+        "access_review": "2026-09-04: public GM Workday tenant, robots permits public career and read-only CXS paths; GM terms prohibit above-human request volume. Enforce three seconds between calls, cache, bounded pagination, and no authentication or challenge bypass. Only public Careers_GM site, never Private or employee sites."
       },
-      "monitor_status": "research-only-no-safe-connector-yet",
+      "monitor_status": "enabled-reviewed-tenant",
       "sponsorship": {
         "confidence": "high",
         "score": 0.82,
@@ -5516,14 +5532,21 @@
       "name": "Adyen",
       "domain": "adyen.com",
       "careers_url": "https://careers.adyen.com/vacancies",
-      "enabled": false,
+      "enabled": true,
       "connector": {
-        "type": "manual",
-        "ats_observed": "custom",
-        "identifier": "",
-        "default_country": "US"
+        "type": "greenhouse",
+        "board_token": "adyen",
+        "access_policy": "documented_public_api",
+        "max_detail_requests": 80,
+        "default_country": "",
+        "access_review": "2026-09-04: official Adyen-branded Greenhouse board and job IDs cross-checked with careers.adyen.com/vacancies; documented public read-only Job Board API.",
+        "evidence_urls": [
+          "https://job-boards.greenhouse.io/adyen",
+          "https://careers.adyen.com/vacancies",
+          "https://docs.greenhouse.io/job-board.html"
+        ]
       },
-      "monitor_status": "research-only-no-safe-connector-yet",
+      "monitor_status": "enabled-reviewed-public-api",
       "sponsorship": {
         "confidence": "medium",
         "score": 0.62,

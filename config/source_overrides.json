@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-04",
+  "companies": {
+    "Adyen": {
+      "enabled": true,
+      "monitor_status": "enabled-reviewed-public-api",
+      "connector": {
+        "type": "greenhouse",
+        "board_token": "adyen",
+        "access_policy": "documented_public_api",
+        "max_detail_requests": 80,
+        "default_country": "",
+        "access_review": "2026-09-04: official Adyen-branded Greenhouse board and job IDs cross-checked with careers.adyen.com/vacancies; documented public read-only Job Board API.",
+        "evidence_urls": ["https://job-boards.greenhouse.io/adyen", "https://careers.adyen.com/vacancies", "https://docs.greenhouse.io/job-board.html"]
+      }
+    },
+    "Arista Networks": {
+      "enabled": true,
+      "monitor_status": "enabled-reviewed-public-api",
+      "connector": {
+        "type": "smartrecruiters",
+        "company_identifier": "AristaNetworks",
+        "access_policy": "documented_public_api",
+        "max_pages": 10,
+        "max_detail_requests": 100,
+        "default_country": "",
+        "access_review": "2026-09-04: Arista-branded official SmartRecruiters board and API employer identity verified; documented public Posting API GET only.",
+        "evidence_urls": ["https://careers.smartrecruiters.com/AristaNetworks", "https://developers.smartrecruiters.com/docs/posting-api"]
+      }
+    },
+    "General Motors": {
+      "enabled": true,
+      "monitor_status": "enabled-reviewed-tenant",
+      "connector": {
+        "type": "workday",
+        "host": "generalmotors.wd5.myworkdayjobs.com",
+        "tenant": "generalmotors",
+        "site": "Careers_GM",
+        "access_policy": "strict",
+        "access_approved": true,
+        "crawl_delay_seconds": 3,
+        "max_pages": 60,
+        "max_detail_requests": 100,
+        "default_country": "",
+        "terms_url": "https://www.gm.com/user-guidelines",
+        "access_review": "2026-09-04: public GM Workday tenant, robots permits public career and read-only CXS paths; GM terms prohibit above-human request volume. Enforce three seconds between calls, cache, bounded pagination, and no authentication or challenge bypass. Only public Careers_GM site, never Private or employee sites."
+      }
+    }
+  }
+}

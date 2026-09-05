@@ -9,10 +9,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .connectors import make_connector
+from .application_queue import eligible_for_queue, export_queue
 from .exporters import export_run
 from .http import HttpClient
-from .models import Company, FetchResult, Job
-from .ranking import Ranker
+from .models import Company, Decision, FetchResult, Job
+from .ranking import Ranker, location_status
 from .state import StateStore
 
 
@@ -156,6 +157,7 @@ class JobMonitor:
         emitted: List[Job] = []
         emitted_keys = set()
         rejected: List[Job] = []
+        current_matches: List[Job] = []
         fatal_error = ""
         try:
             with ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="company") as pool:
@@ -205,7 +207,19 @@ class JobMonitor:
                     job.discovered_at = now
                     job.sponsorship_confidence = company.sponsorship.confidence
                     job.sponsorship_evidence = company.sponsorship.summary
-                    decision = self.ranker.evaluate(job, company, now=now)
+                    # Bulk feeds contain whole international companies. Avoid
+                    # expensive description analysis when a cheap hard gate
+                    # already rules the record out, while honoring custom titles.
+                    quick_rejection = ""
+                    if self.ranker.require_us_location and location_status(job, company) == "non_us":
+                        quick_rejection = "non-US location"
+                    elif not self.ranker.target_title.search(job.title) and not self.ranker.aligned_data_engineer_title.search(job.title):
+                        quick_rejection = "title lacks a target engineering discipline"
+                    decision = (
+                        Decision(False, 0, "REJECT", [], [quick_rejection], None, None,
+                                 company.sponsorship.score, "not_stated")
+                        if quick_rejection else self.ranker.evaluate(job, company, now=now)
+                    )
                     job.match_score = decision.score
                     job.apply_priority = decision.priority
                     job.why_matches = decision.why
@@ -217,6 +231,8 @@ class JobMonitor:
 
                     previous = self.state.get_previous(job)
                     previously_delivered = self.state.was_emitted_in_usable_run(job)
+                    if previous is not None:
+                        job.discovered_at = datetime.fromisoformat(previous["first_seen_at"])
                     previous_posted = None
                     if previous is not None and previous["posted_at"]:
                         previous_posted = datetime.fromisoformat(previous["posted_at"])
@@ -250,12 +266,16 @@ class JobMonitor:
                         provisional_event = "reposted"
                         fresh = True
 
-                    accepted = decision.accepted and fresh
+                    queue_days = int(self.profile.get("application_queue", {}).get("lookback_days", 30))
+                    open_for_application = eligible_for_queue(job, now, max(queue_days, lookback))
+                    accepted = decision.accepted and fresh and open_for_application
                     if decision.accepted:
                         stats["accepted_jobs"] += 1
                     job_key, actual_event = self.state.upsert_job(
                         run_id, job, accepted=decision.accepted, emitted=False, seen_at=now
                     )
+                    if decision.accepted and open_for_application:
+                        current_matches.append(job)
                     job.event_type = (
                         provisional_event
                         if provisional_event in {"new", "reposted"}
@@ -312,6 +332,11 @@ class JobMonitor:
                 max_rejections_per_company=int(reporting.get("max_rejections_per_company", 50)),
             )
             metadata["run_dir"] = str(run_dir)
+            queue_metadata = export_queue(
+                self.output_dir, metadata, current_matches, now,
+                self.profile.get("application_queue", {}),
+            )
+            metadata["queue_jobs"] = queue_metadata["queue_jobs"]
             completed_profile_sources = [
                 (result.company_id, result.source)
                 for result in results

@@ -40,6 +40,8 @@ class WorkdayConnector(Connector):
         site = config["site"]
         access = config.get("access_policy", "strict")
         list_url = f"{host}/wday/cxs/{tenant}/{site}/jobs"
+        if config.get("crawl_delay_seconds"):
+            client.limiter.set_host_interval(list_url, float(config["crawl_delay_seconds"]))
         applied_facets = config.get("applied_facets", {})
         max_pages = min(100, int(config.get("max_pages", 100)))
         client.reset_request_count()

@@ -232,6 +232,8 @@ class ConnectorTests(unittest.TestCase):
 
     def test_greenhouse_detail_budget_gap_marks_cursor_incomplete(self):
         payload = fixture("greenhouse.json")
+        payload["jobs"][0].pop("content", None)
+        payload["jobs"][0].pop("first_published", None)
         result = GreenhouseConnector().fetch(
             company({
                 "type": "greenhouse",
@@ -243,6 +245,23 @@ class ConnectorTests(unittest.TestCase):
         )
         self.assertFalse(result.cursor_complete)
         self.assertIn("budget was exhausted", result.warning)
+
+    def test_greenhouse_bulk_keeps_old_live_descriptions_without_detail_calls(self):
+        payload = fixture("greenhouse.json")
+        for item in payload["jobs"]:
+            item["content"] = "Build Java backend services. Requires 3+ years."
+        calls = []
+        def handler(url, kwargs):
+            calls.append((url, kwargs))
+            return payload
+        result = GreenhouseConnector().fetch(
+            company({"type": "greenhouse", "board_token": "example", "max_detail_requests": 0}),
+            FakeClient(handler), SINCE,
+        )
+        self.assertTrue(result.cursor_complete)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][1]["params"], {"content": "true"})
+        self.assertIn("Java backend", result.jobs[1].description)
 
     def test_ashby_excludes_unlisted_and_keeps_secondary_location(self):
         result = AshbyConnector().fetch(

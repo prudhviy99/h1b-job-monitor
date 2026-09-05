@@ -421,6 +421,16 @@ def main() -> None:
             "default_country": "US",
         })
 
+    # Reviewed connector migrations survive regeneration of historical evidence.
+    overrides_path = Path(__file__).resolve().parents[1] / "config/source_overrides.json"
+    if overrides_path.exists():
+        overrides = json.loads(overrides_path.read_text())["companies"]
+        for name, override in overrides.items():
+            target = next((item for item in companies.values() if item["name"] == name), None)
+            if target is None:
+                raise ValueError(f"Source override names an unresearched employer: {name}")
+            target.update(override)
+
     # Explicit user exclusions override all connector discovery and survive regeneration.
     apply_user_exclusions(companies.values())
 
@@ -432,6 +442,7 @@ def main() -> None:
             "research/source_pass_a.csv",
             "research/source_pass_b.csv",
             "research/coverage_expansion_audit.csv",
+            "config/source_overrides.json",
         ],
         "evidence_warning": (
             "DOL-certified LCAs are employer-level evidence and do not prove USCIS petition approval, "

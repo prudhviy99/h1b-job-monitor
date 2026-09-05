@@ -8,5 +8,6 @@ reports/latest.*
 reports/company_health.csv
 reports/cadence.json
 reports/monitor-status.md
+reports/application-queue.*
 state-backup/
 .DS_Store

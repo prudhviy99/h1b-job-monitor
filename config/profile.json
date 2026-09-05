@@ -1,8 +1,10 @@
 {
   "schema_version": 1,
   "candidate": {
-    "profile_revision": "2026-08-31-master-resume-v2",
-    "experience_as_of": "2026-08-31",
+    "profile_revision": "2026-09-04-final-resume-v3",
+    "profile_source_filename": "prudhvi_yalamanchili.pdf",
+    "profile_source_sha256": "719c81d73d30fe4a12f4492a4e62d494b3ddfcadd93fc357d69294012525e98a",
+    "experience_as_of": "2026-09-04",
     "years_of_relevant_us_experience": 3.75,
     "highest_degree": "masters",
     "current_level": "Software Engineer / SWE II / SDE II / mid-level",
@@ -43,6 +45,11 @@
       "Kafka/MSK, GraphQL, ECS, and Docker appear as skills or project-adjacent evidence without a claimed production duration"
     ]
   },
+  "application_queue": {
+    "lookback_days": 30,
+    "daily_target": 35,
+    "first_batch_per_company": 3
+  },
   "filters": {
     "lookback_days": 7,
     "min_match_score": 55,
@@ -62,7 +69,7 @@
     "max_title_score": 30,
     "max_skill_score": 42,
     "target_title_regex": "\\b(?:SDE|SWE|SRE|MTS)\\b|\\bmember of technical staff\\b|\\bsoftware (?:(?:development|dev) )?(?:engineer|developer)\\b|\\bsystems development engineer\\b|\\b(?:security|cloud|platform|infrastructure) development engineer\\b|\\b(?:backend|back-end|backend platform|cloud platform|cloud infrastructure|data platform|developer platform|security platform|platform reliability|application security|network security|platform|infrastructure|site reliability|reliability|production|security|cloud|distributed systems?|systems software|software systems|devops|devsecops|api|java|python|observability|telemetry) (?:software )?(?:engineer|developer)\\b",
-    "irrelevant_title_regex": "\\b(front[ -]?end|ui engineer|UI|ux|mobile|ios|android|robotics|embedded|firmware|hardware|electrical engineer|silicon bring[- ]?up|quantum|simulation|machine learning(?![ /-]*(?:platform|infrastructure|systems|serving|runtime|reliability|security))|ML engineer|AI engineer|AI systems engineer|applied AI(?![ /-]*(?:platform|infrastructure|systems))|deep learning|edge AI|physical.{0,20}AI|data engineer|data science|data scientist|data analyst|business analyst|full[ -]?stack|product engineer|SDET|software (?:development )?engineer (?:in|for) test|(?:software )?quality engineer|qa|quality assurance|test engineer|test automation|testing|validation engineer|(?:test|testing|QA|quality|verification|validation|V&V) (?:platform|infrastructure|systems?)|build (?:&|and) test|(?:GRC|compliance|risk) (?:analyst|engineer|specialist|manager)|(?:analyst|engineer|specialist|manager)[, /-]+(?:GRC|compliance|risk)|SOC|penetration test|pentest|red team|offensive security|security analyst|client platform security|endpoint security|corporate security|security engineer.{0,30}privacy|security engineer.{0,40}(?:incident response|detection and response)|console frameworks?|AI devops|DRTM|secure launch|customer reliability|support reliability|customer success|technical escalations?|support engineer|(?:solutions?|sales) engineer|consultant|(?:platform|cloud|infrastructure|security|systems?) specialist|recruiter|product manager|program manager|project manager|solutions architect|customer support|technical support|designer|applied scientist|research engineer|research scientist)\\b",
+    "irrelevant_title_regex": "\\b(front[ -]?end|ui engineer|UI|ux|mobile|ios|android|robotics|embedded|firmware|hardware|electrical engineer|silicon bring[- ]?up|quantum|simulation|machine learning(?![ /-]*(?:platform|infrastructure|systems|serving|runtime|reliability|security))|ML engineer|AI engineer|AI systems engineer|applied AI(?![ /-]*(?:platform|infrastructure|systems))|deep learning|edge AI|physical.{0,20}AI|data engineer|data science|data scientist|data analyst|business analyst|full[ -]?stack|product engineer|SDET|software (?:development )?engineer (?:in|for) test|(?:software )?quality engineer|qa|quality assurance|test engineer|test automation|testing|validation engineer|(?:test|testing|QA|quality|verification|validation|V&V) (?:platform|infrastructure|systems?)|build (?:&|and) test|(?:GRC|compliance|risk) (?:analyst|engineer|specialist|manager)|(?:analyst|engineer|specialist|manager)[, /-]+(?:GRC|compliance|risk)|SOC|penetration test|pentest|red team|offensive security|security analyst|client platform security|endpoint security|corporate security|security engineer.{0,30}privacy|security engineer.{0,40}(?:incident response|detection and response)|console frameworks?|AI devops|DRTM|secure launch|customer reliability|support reliability|customer success|technical escalations?|support engineer|(?:solutions?|sales) engineer|consultant|(?:platform|cloud|infrastructure|security|systems?) specialist|recruiter|product manager|program manager|project manager|solutions architect|customer support|technical support|designer|applied scientist|research engineer|research scientist)\\b|\\b(?:HIL|SIL|hardware[- ]in[- ](?:the[- ])?loop|software[- ]in[- ](?:the[- ])?loop)\\b",
     "junior_title_regex": "\\b(new (?:college )?grad(?:uate)?|recent grad(?:uate)?|university grad|graduate|campus|early career|(?:early|emerging|entry) talent|entry[ -]level|junior|jr\\.?|associate|trainee|AMTS)\\b",
     "early_career_metadata_regex": "\\b(university recruiting|campus programs?|early careers?|student programs?|new grad(?:uate)?|university grad(?:uate)?|entry[ -]level)\\b",
     "irrelevant_department_regex": "\\b(iOS|Android|mobile|front[ -]?end|UI|UX|user interface|quality (?:assurance|engineering)|QA|test(?:ing)? engineering|software test|validation|verification|V&V|customer engineering|professional services|sales engineering|solutions engineering|technical support|customer support|developer relations|data science|machine learning|artificial intelligence|ML|AI|robotics|hardware|firmware|embedded)\\b",

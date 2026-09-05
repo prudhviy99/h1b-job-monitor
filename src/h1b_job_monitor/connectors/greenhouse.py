@@ -20,7 +20,10 @@ class GreenhouseConnector(Connector):
         access = config.get("access_policy", "documented_public_api")
         list_url = f"{base.rstrip('/')}/{token}/jobs"
         client.reset_request_count()
-        response = client.get(list_url, access_policy=access)
+        # The documented bulk endpoint includes descriptions and departments.
+        # Without content=true, older live roles became empty-description
+        # rejections and disappeared from the application backlog on later runs.
+        response = client.get(list_url, params={"content": "true"}, access_policy=access)
         payload = response.json()
         items = payload.get("jobs", [])
         jobs: List[Job] = []
@@ -33,7 +36,7 @@ class GreenhouseConnector(Connector):
             posted = parse_datetime(item.get("first_published"))
             detail: Dict[str, Any] = {}
             needs_detail = likely_detail_candidate(str(item.get("title", ""))) and (
-                posted is None or posted >= since - timedelta(days=1)
+                posted is None or not item.get("content")
             )
             if needs_detail:
                 if detail_budget <= 0:
