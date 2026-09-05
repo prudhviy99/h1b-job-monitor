@@ -45,8 +45,6 @@ The three new connectors reuse existing matched legal-employer LCA records; no n
 - [SmartRecruiters Posting API](https://developers.smartrecruiters.com/docs/posting-api): public published-job discovery.
 - [Ashby public postings API](https://developers.ashbyhq.com/docs/public-job-posting-api): listed jobs, published dates and official application URLs.
 
-## Practical limits
-
 ## Verification result
 
 The final [hosted run](https://github.com/prudhviy99/h1b-job-monitor/actions/runs/33946885593), started September 4 at 10:19 PM Pacific, completed successfully with 65/65 enabled sources, 12,945 fetched records, 36 queue candidates across 21 employers, and zero duplicate job keys, Amazon roles, or extracted required experience floors above four years in the queue. It emitted zero repeated alerts on this follow-up run. State checkpoint, durable backup upload, cache save, report upload, queue publication and status update all succeeded. The Starbucks failure recovered and its alert closed. All 141 tests passed. A local browser check confirmed the HTML queue rendered without horizontal overflow and its company search filtered correctly.
