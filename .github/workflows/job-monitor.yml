@@ -80,7 +80,7 @@ jobs:
         run: |
           set +e
           timeout --signal=TERM --kill-after=30s 90m env PYTHONPATH=src \
-            python -m h1b_job_monitor crawl --mode auto
+            python -m h1b_job_monitor crawl --mode auto --reported-baseline config/reported-baseline.json
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
@@ -135,8 +135,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ALERT_KIND: ${{ steps.summary.outputs.alert_kind }}
           ALERT_TITLE: ${{ steps.summary.outputs.alert_title }}
-          MATCH_TITLE: ${{ steps.summary.outputs.match_title }}
-          MONITOR_RUN_ID: ${{ steps.summary.outputs.monitor_run_id }}
+          SESSION_TITLE: ${{ steps.summary.outputs.session_title }}
           NEW_MATCHES: ${{ steps.summary.outputs.new_matches }}
         run: |
           gh label create h1b-monitor-failure \
@@ -180,35 +179,7 @@ jobs:
             fi
           fi
 
-          if [ "$NEW_MATCHES" -gt 0 ]; then
-            gh label create h1b-monitor-match \
-              --repo "$GITHUB_REPOSITORY" \
-              --color 1D76DB \
-              --description "New verified H-1B-friendly role matches" \
-              --force
-            EXISTING_MATCH="$(gh issue list \
-              --repo "$GITHUB_REPOSITORY" \
-              --state all \
-              --label h1b-monitor-match \
-              --limit 100 \
-              --json number,body | python -c \
-              'import json, os, sys; marker = "h1b-monitor-run:" + os.environ.get("MONITOR_RUN_ID", ""); rows = json.load(sys.stdin); print(next((row["number"] for row in rows if marker and marker in (row.get("body") or "")), ""))')"
-            if [ -z "$EXISTING_MATCH" ]; then
-              gh issue create \
-                --repo "$GITHUB_REPOSITORY" \
-                --assignee "$GITHUB_REPOSITORY_OWNER" \
-                --label h1b-monitor-match \
-                --title "$MATCH_TITLE" \
-                --body-file reports/github-summary.md
-            fi
-          fi
-
-      - name: Publish rolling application queue
-        id: queue
-        if: ${{ always() && steps.cadence.outputs.should_run == 'true' && steps.summary.outcome == 'success' && hashFiles('reports/application-queue.json') != '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python scripts/github_queue.py
+          python scripts/github_session.py
 
       - name: Prepare checked recovery backup
         id: backup-prepare
@@ -311,7 +282,6 @@ jobs:
           CHECKPOINT: ${{ steps.checkpoint.outcome }}
           SUMMARY: ${{ steps.summary.outcome }}
           NOTIFY: ${{ steps.notify.outcome }}
-          QUEUE: ${{ steps.queue.outcome }}
           SAVE: ${{ steps.state-save.outcome }}
           BACKUP_PREPARE: ${{ steps.backup-prepare.outcome }}
           BACKUP_UPLOAD: ${{ steps.backup-upload.outcome }}
@@ -321,7 +291,7 @@ jobs:
             --step-outcome "State restore=$RESTORE" --step-outcome "State recovery=$RECOVER" \
             --step-outcome "Cadence=$CADENCE" --step-outcome "Validation=$VALIDATE" \
             --step-outcome "Crawl=$CRAWL" --step-outcome "Checkpoint=$CHECKPOINT" \
-            --step-outcome "Summary=$SUMMARY" --step-outcome "Notifications=$NOTIFY" --step-outcome "Application queue=$QUEUE" \
+            --step-outcome "Summary=$SUMMARY" --step-outcome "Notifications=$NOTIFY" \
             --step-outcome "State save=$SAVE" --step-outcome "Backup=$BACKUP_PREPARE" \
             --step-outcome "Backup upload=$BACKUP_UPLOAD" --step-outcome "Report upload=$UPLOAD"
 
@@ -336,7 +306,6 @@ jobs:
             steps.checkpoint.outcome == 'failure' ||
             steps.summary.outcome == 'failure' ||
             steps.notify.outcome == 'failure' ||
-            steps.queue.outcome == 'failure' ||
             steps.state-save.outcome == 'failure' ||
             steps.upload.outcome == 'failure' ||
             steps.backup-prepare.outcome == 'failure' ||

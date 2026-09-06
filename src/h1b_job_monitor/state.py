@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import threading
 import uuid
@@ -10,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Tuple
 
 from .models import Job
-from .util import content_hash, stable_job_key
+from .util import content_hash, stable_job_key, parse_datetime
 
 
 SCHEMA = """
@@ -98,6 +99,13 @@ CREATE TABLE IF NOT EXISTS http_cache (
     status INTEGER NOT NULL,
     body BLOB NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS external_report_receipts (
+    job_key TEXT PRIMARY KEY,
+    posted_at TEXT NOT NULL,
+    reported_at TEXT NOT NULL,
+    report_id TEXT NOT NULL
+);
 """
 
 
@@ -121,6 +129,36 @@ class StateStore:
     def close(self) -> None:
         with self._lock:
             self.conn.close()
+
+    def import_reported_baseline(self, payload: Dict[str, Any]) -> int:
+        """Add local-report receipts without resetting jobs, runs, or crawl cursors."""
+        reported = parse_datetime(payload.get("reported_at"))
+        report_id = payload.get("report_id")
+        jobs = payload.get("jobs")
+        if payload.get("schema_version") != 1 or not reported or not isinstance(report_id, str) or not report_id or not isinstance(jobs, list):
+            raise ValueError("Invalid local report baseline")
+        rows = []
+        for item in jobs:
+            key = item.get("job_key", "")
+            posted = parse_datetime(item.get("posted_at"))
+            if not re.fullmatch(r"[a-f0-9]{64}", key) or not posted:
+                raise ValueError("Baseline job needs a valid identity and posting date")
+            rows.append((key, posted.isoformat(), reported.isoformat(), report_id))
+        with self._lock, self.conn:
+            self.conn.executemany(
+                """INSERT INTO external_report_receipts VALUES(?,?,?,?)
+                ON CONFLICT(job_key) DO UPDATE SET posted_at=excluded.posted_at,
+                    reported_at=excluded.reported_at, report_id=excluded.report_id
+                WHERE julianday(excluded.posted_at) > julianday(external_report_receipts.posted_at)""",
+                rows,
+            )
+        return len(rows)
+
+    def externally_reported_posted_at(self, job: Job) -> Optional[datetime]:
+        key = stable_job_key(job.company_id, job.source_job_id, job.source_url, job.title, job.location)
+        with self._lock:
+            row = self.conn.execute("SELECT posted_at FROM external_report_receipts WHERE job_key=?", (key,)).fetchone()
+        return parse_datetime(row["posted_at"]) if row else None
 
     def start_run(self, mode: str, companies_total: int, started_at: datetime) -> str:
         run_id = f"{started_at.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8]}"

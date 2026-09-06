@@ -45,11 +45,6 @@
       "Kafka/MSK, GraphQL, ECS, and Docker appear as skills or project-adjacent evidence without a claimed production duration"
     ]
   },
-  "application_queue": {
-    "lookback_days": 30,
-    "daily_target": 35,
-    "first_batch_per_company": 3
-  },
   "filters": {
     "lookback_days": 7,
     "min_match_score": 55,

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .connectors import make_connector
-from .application_queue import eligible_for_queue, export_queue
+from .eligibility import open_for_application
 from .exporters import export_run
 from .http import HttpClient
 from .models import Company, Decision, FetchResult, Job
@@ -157,7 +157,6 @@ class JobMonitor:
         emitted: List[Job] = []
         emitted_keys = set()
         rejected: List[Job] = []
-        current_matches: List[Job] = []
         fatal_error = ""
         try:
             with ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="company") as pool:
@@ -230,17 +229,20 @@ class JobMonitor:
                     job.role_sponsorship_signal = decision.sponsorship_signal
 
                     previous = self.state.get_previous(job)
-                    previously_delivered = self.state.was_emitted_in_usable_run(job)
+                    external_posted = self.state.externally_reported_posted_at(job)
+                    previously_delivered = self.state.was_emitted_in_usable_run(job) or external_posted is not None
                     if previous is not None:
                         job.discovered_at = datetime.fromisoformat(previous["first_seen_at"])
                     previous_posted = None
                     if previous is not None and previous["posted_at"]:
                         previous_posted = datetime.fromisoformat(previous["posted_at"])
+                    if external_posted and (previous_posted is None or external_posted > previous_posted):
+                        previous_posted = external_posted
                     date_verified = (
                         job.posted_at is not None and job.posting_date_confidence in allowed_date_confidence
                     )
                     fresh = False
-                    provisional_event = "new" if previous is None or not previously_delivered else "seen"
+                    provisional_event = "new" if not previously_delivered else "seen"
                     if result_mode == "initial":
                         fresh = bool(
                             date_verified
@@ -248,7 +250,7 @@ class JobMonitor:
                         )
                         if not fresh:
                             job.rejection_reasons.append("not a verified posting from the initial 7-day window")
-                    elif previous is None or not previously_delivered:
+                    elif not previously_delivered:
                         provisional_event = "new"
                         allow_undated = bool(filters.get("subsequent_run_allows_new_undated_jobs", False))
                         fresh = bool(
@@ -266,16 +268,12 @@ class JobMonitor:
                         provisional_event = "reposted"
                         fresh = True
 
-                    queue_days = int(self.profile.get("application_queue", {}).get("lookback_days", 30))
-                    open_for_application = eligible_for_queue(job, now, max(queue_days, lookback))
-                    accepted = decision.accepted and fresh and open_for_application
+                    accepted = decision.accepted and fresh and open_for_application(job, now)
                     if decision.accepted:
                         stats["accepted_jobs"] += 1
                     job_key, actual_event = self.state.upsert_job(
                         run_id, job, accepted=decision.accepted, emitted=False, seen_at=now
                     )
-                    if decision.accepted and open_for_application:
-                        current_matches.append(job)
                     job.event_type = (
                         provisional_event
                         if provisional_event in {"new", "reposted"}
@@ -332,11 +330,6 @@ class JobMonitor:
                 max_rejections_per_company=int(reporting.get("max_rejections_per_company", 50)),
             )
             metadata["run_dir"] = str(run_dir)
-            queue_metadata = export_queue(
-                self.output_dir, metadata, current_matches, now,
-                self.profile.get("application_queue", {}),
-            )
-            metadata["queue_jobs"] = queue_metadata["queue_jobs"]
             completed_profile_sources = [
                 (result.company_id, result.source)
                 for result in results

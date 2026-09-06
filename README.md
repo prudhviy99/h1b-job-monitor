@@ -1,6 +1,6 @@
 # H-1B-friendly software job monitor
 
-This project discovers US software-engineering roles from official employer career sources and maintains both deduplicated new-job alerts and a rolling application queue. The September 4 resume profile emphasizes Java/Spring Boot and Python/FastAPI services; AWS Shield, backend and distributed systems, Kinesis telemetry, DynamoDB/RDS, multi-region infrastructure, security, and SRE/operations; plus project-backed WebFlux/Redis/NGINX and AI incident-triage experience. It conservatively represents roughly 3.75 years of relevant experience.
+This project discovers US software-engineering roles from official employer career sources and produces permanent, deduplicated session reports. The September 4 resume profile emphasizes Java/Spring Boot and Python/FastAPI services; AWS Shield, backend and distributed systems, Kinesis telemetry, DynamoDB/RDS, multi-region infrastructure, security, and SRE/operations; plus project-backed WebFlux/Redis/NGINX and AI incident-triage experience. It conservatively represents roughly 3.75 years of relevant experience.
 
 It is deliberately not a LinkedIn scraper, job aggregator, auto-apply tool, or claim that a company will sponsor every role.
 
@@ -14,14 +14,14 @@ It is deliberately not a LinkedIn scraper, job aggregator, auto-apply tool, or c
 - SQLite persistence, cross-run deduplication, HTTP ETag/Last-Modified caching, rate limiting, retries with backoff, robots checks, response-size limits, source health, and graceful per-company failure handling.
 - Configurable title, seniority, years-of-experience, role-family, skill, location, sponsorship, and freshness ranking.
 - CSV, JSON, Markdown, and a readable HTML report.
-- A separate 30-day application queue from records seen in the current crawl, including suitable backlog, grouped Greenhouse requisitions, deadline checks, clear uncertain-date labels, and an employer-diverse first batch. [Daily workflow](DAILY_WORKFLOW.md) and [system audit](research/system-review-2026-09-04.md).
+- One GitHub issue per actual crawl, including zero matches and partial/failed sessions. An initial local seven-day report can be acknowledged through additive receipts without resetting hosted discovery history. There is no rolling queue. [Daily workflow](DAILY_WORKFLOW.md).
 - macOS `launchd`, cron, and GitHub Actions scheduler options. None is silently activated by the files alone.
 
 ## Quick start
 
 Python 3.9 or newer is enough; the monitor has no third-party runtime dependencies.
 
-For daily use, open the GitHub issue labeled **h1b-application-queue**. It is updated after every actual crawl, including runs with no new alerts. Download that run's report artifact for `application-queue.html` (searchable), `.csv`, or `.json`. The queue includes previous alerts: use a private application tracker to exclude jobs already submitted. It does not infer whether you applied. Records absent from the current crawl are omitted; this is not a promise of complete 30-day coverage from every date-prefiltered connector.
+For daily use, open [session report issues](https://github.com/prudhviy99/h1b-job-monitor/issues?q=is%3Aissue+label%3Ah1b-session-report). A new issue is created after each actual crawl, even with zero new matches. Issues contain the session time in Pacific time, source health, results and a link to downloadable HTML/CSV/JSON reports. Previous reports remain snapshots; their contents do not disappear when a job is absent from a later scan. Check the official page before applying because a historical report is not a claim that a role remains open.
 
 ```bash
 cd /absolute/path/to/h1b-job-monitor
@@ -31,7 +31,7 @@ PYTHONPATH=src python3 -m h1b_job_monitor crawl --mode auto
 
 Open `reports/latest.html`, or use `reports/latest.csv` / `reports/latest.json` in another workflow.
 
-`--mode auto` uses `initial` when no usable run exists and `incremental` afterward. Each employer advances from its own last complete source run, so an outage cannot move that employer's cursor past unseen jobs. To rerun a seven-day backfill deliberately, pass `--mode initial`. To test a few sources:
+`--mode auto` uses `initial` when no usable run exists and `incremental` afterward. Each employer advances from its own last complete source run, so an outage cannot move that employer's cursor past unseen jobs. `--mode initial` scans the past week but still honors existing delivery markers. For a fresh standalone seven-day snapshot, use a new, isolated state path; never delete or reset the hosted state. To test a few sources:
 
 ```bash
 PYTHONPATH=src python3 -m h1b_job_monitor crawl \
@@ -42,6 +42,14 @@ PYTHONPATH=src python3 -m h1b_job_monitor crawl \
 ```
 
 ## Output contract
+
+### Initial local report and hosted handoff
+
+Create a new output directory with `mktemp -d reports/initial-week.XXXXXX`, then run an initial crawl with both `--state <that-directory>/snapshot.sqlite` and `--output-dir <that-directory>`. The result is a fresh seven-day snapshot, including matches that may already have appeared in older reports. No existing local or hosted SQLite database is replaced.
+
+After that report is delivered, `python3 scripts/make_reported_baseline.py <that-directory>/latest.json config/reported-baseline.json` generates minimal job-ID hashes and posting-date receipts. The hosted command imports these using `--reported-baseline config/reported-baseline.json`. Imports are additive and idempotent, do not advance source cursors, and do not suppress genuinely newer verified repost dates. Existing history remains intact. No resume or private application history is included in the receipts.
+
+### Report fields
 
 Each emitted role includes:
 
@@ -113,11 +121,11 @@ The workflow targets **07:17 and 19:17 America/Los_Angeles**, including daylight
 
 **GitHub schedules are best-effort, not guaranteed appointment times.** Recent native events arrived 3–6 hours late even with UTC schedules. More frequent wake-ups improve recovery but cannot provide an independent guarantee against GitHub's scheduler stopping entirely. Hosted execution does not depend on the laptop. Normal manual runs and external dispatches obey the same cadence; use the explicit `force_crawl` option only for an intentional additional scan.
 
-This repository is intentionally public. Its workflow definition, run logs, job summaries, match/failure issues, repository owner, and legacy local launcher/package identifiers are therefore public. The checked-in matching profile contains only generalized experience and skill evidence; the resume file, contact details, and local SQLite database are excluded. Each run retains the report artifact for 30 days and creates an owner-assigned public issue for new P0/P1/P2 matches.
+This repository is intentionally public. Its workflow definition, run logs, job summaries, report/failure issues, repository owner, and legacy local launcher/package identifiers are therefore public. The checked-in matching profile contains only generalized experience and skill evidence; the resume file, contact details, and local SQLite database are excluded. Each actual crawl retains its report artifact for 30 days and creates an owner-assigned public session-report issue, even with zero P0/P1/P2 matches. GitHub notification delivery follows the owner's account settings. Scheduler wake-ups that do not crawl do not create report issues. A retry of the same GitHub workflow updates its existing report issue rather than creating another.
 
-The issue labeled **h1b-monitor-status** shows the last wake-up separately from the last actual crawl, source counts, latest outcome, new-match count (including zero), due window, and recent history. It links to the application queue. Its timestamp is a snapshot: if it stops advancing, do not mistake the old “healthy” label for a live guarantee. This scheduler cannot send an alert while all of its own triggers have stopped.
+The issue labeled **h1b-monitor-status** shows the last wake-up separately from the last actual crawl, source counts, latest outcome, new-match count (including zero), due window, and recent history. It links to session reports. Its timestamp is a snapshot: if it stops advancing, do not mistake the old “healthy” label for a live guarantee. This scheduler cannot send an alert while all of its own triggers have stopped.
 
-Issues labeled **h1b-monitor-match** contain jobs and are never auto-closed. Issues labeled **h1b-monitor-failure** describe operational problems; recovery closes them with a link to the successful run. Closure does not delete or retract any jobs. All new issue dates and visible crawl timestamps use Pacific time. Expedia and other sites can intermittently deny hosted requests; the crawler stops that source's detail requests on 401/403, preserves its cursor, and reports the failure without bypassing access controls.
+Issues labeled **h1b-session-report** preserve every actual crawl, including zero-match and failed sessions; reports containing jobs also receive **h1b-monitor-match**. Neither is automatically closed. Separate **h1b-monitor-failure** alerts describe current operational problems; recovery closes those alerts, not the historical session reports. Closure does not delete or retract jobs. All new issue dates and visible crawl timestamps use Pacific time. Expedia and other sites can intermittently deny hosted requests; the crawler stops that source's detail requests on 401/403, preserves its cursor, and reports the failure without bypassing access controls. The former queue issue is retired; its history is preserved.
 
 State is saved in the existing cache and in a checksum-checked recovery artifact retained for 90 days. The recovery copy includes job identities, emission markers, sightings, cursors, and run history; disposable HTTP-response cache entries are omitted from the copy only. Backups are accessible to people who can download this public repository's artifacts. If the cache disappears, the latest backup is verified before restoration. Missing/corrupt state or a backup older than a newer unbacked report blocks execution: it never silently resets seen jobs or reinitializes the past week.
 

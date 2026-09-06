@@ -53,7 +53,7 @@ def render_status(now, history, expected, repository, run_id, issues, failures, 
         f"- Cadence: {decision['reason']}",
         f"- [This wake-up/run]({run_url}) · [Restored state's workflow]({prior_url})",
         f"- [Job-match issues](https://github.com/{repository}/issues?q=is%3Aissue+label%3Ah1b-monitor-match)",
-        f"- [Start here: rolling application queue](https://github.com/{repository}/issues?q=is%3Aissue+is%3Aopen+label%3Ah1b-application-queue)",
+        f"- [Session reports, including zero-match sessions](https://github.com/{repository}/issues?q=is%3Aissue+label%3Ah1b-session-report)",
         "", "Targets are 7:17 AM and 7:17 PM Pacific. Half-hourly GitHub wake-ups are best-effort, not a timing guarantee.",
         "If this timestamp stops advancing, GitHub may not be delivering events; this same scheduler cannot alert while it is completely stopped.",
         "",
@@ -72,7 +72,7 @@ def render_status(now, history, expected, repository, run_id, issues, failures, 
     body += ["## Recent actual crawls", "", "| Pacific start | Outcome | Healthy sources | New matches |", "|---|---|---|---|"]
     for row in history[:6]:
         body.append(f"| {local_time(row['started_at'])} | {markdown_text(row['status'])} | {row['companies_ok']}/{row['companies_total']} | {row['emitted_jobs']} |")
-    body += ["", "Failure alerts close only after recovery. Job-match issues are never automatically closed.",
+    body += ["", "Failure alerts close only after recovery. Session reports and job-match issues are never automatically closed.",
              "State cache and checked backups preserve seen-job deduplication; missing state blocks a crawl rather than resetting it.", ""]
     return title, "\n".join(body)
 

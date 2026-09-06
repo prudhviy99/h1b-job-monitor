@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "report_id": "20260906T170518Z-88e226ff",
+  "reported_at": "2026-09-06T17:05:18.481446+00:00",
+  "source_report_sha256": "df49d04cf50c230ac95c64191fc231e7f4adadf36e2773a93a87cb7498bfee9c",
+  "jobs": [
+    {
+      "job_key": "b1bd0a1238ea2a35f1598f47f4b694892502ee33c085c8ee2a391f49feb1e078",
+      "posted_at": "2026-09-01T16:51:58.180000+00:00"
+    },
+    {
+      "job_key": "6a54bd4899aeaa12d4c1aeb069166312bf6c89aeea4c12f604a1e4f62c281c9a",
+      "posted_at": "2026-09-01T22:31:44+00:00"
+    },
+    {
+      "job_key": "305ccfdaad604c48b0618ce9302038fa89cb9108f0b809ef9133604fe33efc04",
+      "posted_at": "2026-09-04T00:00:00+00:00"
+    },
+    {
+      "job_key": "c33f2d8ec07bb7ba0771f056347cd3e3dbdc819a3ee502b4a701b3988022f837",
+      "posted_at": "2026-09-04T20:24:12+00:00"
+    },
+    {
+      "job_key": "161e7d98f6447338b7f93fb67e23f4fd79fecd68a819eddff32f5a92d56868a5",
+      "posted_at": "2026-09-04T12:21:46+00:00"
+    },
+    {
+      "job_key": "0e128374019781455121fbad7d524852b290e8becf6029e64eb5d6c3bf90659b",
+      "posted_at": "2026-09-04T16:58:08+00:00"
+    },
+    {
+      "job_key": "4577a215c4f889127ace7e527e2e8d81caca92308e034bf8e04e1da361ee157c",
+      "posted_at": "2026-08-31T20:44:16+00:00"
+    },
+    {
+      "job_key": "84b13e47815d206fad7cf2ffa9445006921d4933ffd65fe467d6fad787f031e7",
+      "posted_at": "2026-08-31T23:35:10.188000+00:00"
+    },
+    {
+      "job_key": "af7ff516b6d15340b991a58dc1e87d735c0a1d3b675ec93dd32facacda7949c8",
+      "posted_at": "2026-09-03T23:15:13+00:00"
+    },
+    {
+      "job_key": "db66d007a34e70f6ba91f4ac44753f723130abc7798ab4d2862363284f183229",
+      "posted_at": "2026-08-31T00:00:00+00:00"
+    },
+    {
+      "job_key": "a2e2c3ff33e7f9c59689bdc04cdaa5994633182160c3106e76e9f153fec32df4",
+      "posted_at": "2026-09-03T00:00:00+00:00"
+    },
+    {
+      "job_key": "f875b82317364bf45dc4e7552febc2c6ca44a868c27508e0820f12e8b7b2becb",
+      "posted_at": "2026-09-03T18:02:16+00:00"
+    },
+    {
+      "job_key": "343d2eb89af3bbf0351457c6d3ae197abc9993b509024c1dddeb8f3e3ed0c2b5",
+      "posted_at": "2026-09-01T00:00:00+00:00"
+    },
+    {
+      "job_key": "07a4f4dfe846285872b0256b23782f0ed8b44ef3d73774b9aa0f1224a98fb14c",
+      "posted_at": "2026-09-04T16:05:35+00:00"
+    },
+    {
+      "job_key": "0518e6be683b336cd3f40f753482c3d61e7b352395cc377749d2705036b4794d",
+      "posted_at": "2026-09-01T17:55:46+00:00"
+    },
+    {
+      "job_key": "046f89ec71235030e64267a8047d764a6be9f1f771b6e255655f60354cdb5482",
+      "posted_at": "2026-09-05T14:19:37.047000+00:00"
+    },
+    {
+      "job_key": "477a5be1af235d87b4aa36a5da36b8fba6f5adc1e0faaa0031811002e3cb524b",
+      "posted_at": "2026-09-02T07:13:55+00:00"
+    },
+    {
+      "job_key": "c64d9204ebd36eefee3fc07e64f90be5d5c1605eef0aa2ab37df0d42bebd2c99",
+      "posted_at": "2026-09-03T22:46:12+00:00"
+    }
+  ]
+}

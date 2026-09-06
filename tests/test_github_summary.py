@@ -19,6 +19,22 @@ SPEC.loader.exec_module(github_summary)
 
 
 class GitHubSummaryTests(unittest.TestCase):
+    def test_successful_zero_match_session_still_requests_a_dated_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path/'latest.json').write_text(json.dumps({'metadata': {
+                'run_id':'zero-run', 'mode':'incremental', 'status':'success',
+                'started_at':'2026-09-06T16:00:00Z', 'companies_enabled':65,
+                'companies_ok':65}, 'jobs':[]}))
+            argv = ['github_summary.py', '--report', str(path/'latest.json'),
+                    '--health', str(path/'health.csv'), '--output', str(path/'summary.md')]
+            with patch.object(sys, 'argv', argv), patch.dict(os.environ, {'GITHUB_OUTPUT':str(path/'outputs')}):
+                self.assertEqual(github_summary.main(), 0)
+            outputs = (path/'outputs').read_text()
+            self.assertIn('should_alert=true', outputs)
+            self.assertIn('session_title=H-1B report — 2026-09-06 09:00 AM PDT — success — 0 new matches', outputs)
+            self.assertIn('No new verified matches', (path/'summary.md').read_text())
+
     def test_report_dates_use_pacific_day_not_utc_day(self):
         local = github_summary.local_run_time({"started_at": "2026-08-31T03:00:00Z"})
         self.assertEqual(local.strftime("%Y-%m-%d %H:%M %Z"), "2026-08-30 20:00 PDT")

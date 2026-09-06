@@ -133,7 +133,7 @@ def main() -> int:
             infrastructure_failures.append(f"{name.strip()}: {status.strip().lower()}")
     jobs = [] if monitor_failed or infrastructure_failures else eligible_jobs
     reported_failures = int(metadata.get("companies_failed") or 0)
-    should_alert = bool(jobs or failures or reported_failures or monitor_failed or infrastructure_failures)
+    should_alert = True  # Every actual crawl gets a report, including zero matches.
     started_local = local_run_time(metadata)
     date = started_local.date().isoformat() + " Pacific"
     run_marker = re.sub(r"[^A-Za-z0-9_.:-]", "_", str(metadata.get("run_id") or ""))[:120]
@@ -158,6 +158,7 @@ def main() -> int:
     if metadata:
         lines.extend([
             f"Run `{markdown_text(metadata.get('run_id'))}` · `{markdown_text(metadata.get('mode'))}`",
+            f"Sources healthy: **{metadata.get('companies_ok', 0)}/{metadata.get('companies_enabled', 0)}** · Outcome: **{markdown_text(reported_status)}**",
             "",
         ])
     if monitor_failed:
@@ -199,6 +200,7 @@ def main() -> int:
                 f"### {priority} — {company}: {title_link}",
                 "",
                 f"- **Location:** {markdown_text(job.get('location'))}",
+                f"- **Posting date:** {markdown_text(job.get('posted_at') or 'unverified')}",
                 f"- **Why it matches:** {markdown_text(job.get('why_matches'))}",
                 f"- **Sponsorship confidence:** {markdown_text(job.get('sponsorship_confidence'))}",
                 f"- **Event:** {markdown_text(job.get('event_type'))}",
@@ -212,6 +214,8 @@ def main() -> int:
     write_output("should_alert", "true" if should_alert else "false")
     write_output("alert_title", title)
     count = len(jobs)
+    outcome = 'failed' if monitor_failed or infrastructure_failures else ('partial' if failures or reported_failures else 'success')
+    write_output("session_title", f"H-1B report — {started_local.strftime('%Y-%m-%d %I:%M %p %Z')} — {outcome} — {count} new matches")
     write_output(
         "match_title",
         f"H-1B monitor: {count} new match{'es' if count != 1 else ''} — {date}",

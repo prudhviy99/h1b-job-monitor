@@ -93,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     crawl.add_argument("--companies", type=Path, default=Path("config/companies.json"))
     crawl.add_argument("--profile", type=Path, default=Path("config/profile.json"))
     crawl.add_argument("--state", type=Path, default=Path("data/jobs.sqlite"))
+    crawl.add_argument("--reported-baseline", type=Path, help="Import additive receipts for an already-delivered local report")
     crawl.add_argument("--output-dir", type=Path, default=Path("reports"))
     crawl.add_argument("--mode", choices=("auto", "initial", "incremental"), default="auto")
     crawl.add_argument("--company", action="append", dest="company_ids")
@@ -119,6 +120,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     with exclusive_run_lock(args.state):
         state = StateStore(args.state)
         try:
+            if args.reported_baseline:
+                count = state.import_reported_baseline(load_json(args.reported_baseline))
+                logging.info("Imported %s local report receipts; existing discovery history preserved", count)
             monitor = JobMonitor(companies, profile, state, args.output_dir)
             result = monitor.run(args.mode, now=now, selected_company_ids=args.company_ids)
         finally:
