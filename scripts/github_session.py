@@ -35,7 +35,8 @@ def publish_session(repository, owner, run_id, title, summary_path, new_matches,
         # Rerun replaces only its own section, never other checks or earlier jobs.
         body = re.sub(re.escape(marker) + r'.*?' + re.escape(end_marker),
                       lambda _: body.strip(), existing['body'], flags=re.S)
-        title = existing.get('title') or title
+        if existing['body'].count('<!-- h1b-session:') > 1:
+            title = existing.get('title') or title
     elif not existing and not new_matches and window_marker:
         candidates = [r for r in reports if window_marker in (r.get('body') or '')]
         if candidates:
