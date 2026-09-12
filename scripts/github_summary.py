@@ -220,8 +220,10 @@ def main() -> int:
         "match_title",
         f"H-1B monitor: {count} new match{'es' if count != 1 else ''} — {date}",
     )
-    if monitor_failed or infrastructure_failures or failures or reported_failures:
+    if monitor_failed or infrastructure_failures:
         alert_kind = "failure"
+    elif failures or reported_failures:
+        alert_kind = "source-warning"
     elif jobs:
         alert_kind = "matches"
     else:

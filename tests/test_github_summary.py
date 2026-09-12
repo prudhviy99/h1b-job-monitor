@@ -146,7 +146,7 @@ class GitHubSummaryTests(unittest.TestCase):
             self.assertNotIn("## Monitor failure", summary)
             self.assertIn("Backend Engineer", summary)
             self.assertNotIn("Unrelated", summary)
-            self.assertIn("alert_kind=failure", outputs)
+            self.assertIn("alert_kind=source-warning", outputs)
             self.assertIn("new_matches=1", outputs)
             self.assertIn("match_title=H-1B monitor: 1 new match", outputs)
 

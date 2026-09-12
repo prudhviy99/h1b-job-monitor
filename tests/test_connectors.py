@@ -97,6 +97,25 @@ def company(connector, name="Example"):
 
 
 class ConnectorTests(unittest.TestCase):
+    def test_malformed_sitemap_refresh_is_bounded_and_preserves_failures(self):
+        config = company({'type':'sitemap', 'sitemap_url':'https://example.test/sitemap.xml'})
+        calls = []
+        def transient(url, kwargs):
+            calls.append(kwargs)
+            return '<urlset>broken &' if len(calls) == 1 else '<urlset></urlset>'
+        result = SitemapConnector().fetch(config, FakeClient(transient), SINCE)
+        self.assertTrue(result.cursor_complete)
+        self.assertEqual([c['use_cache'] for c in calls], [True, False])
+        self.assertTrue(all(c['access_policy'] == 'strict' for c in calls))
+        client = FakeClient('<urlset>broken &')
+        result = SitemapConnector().fetch(config, client, SINCE)
+        self.assertFalse(result.cursor_complete)
+        self.assertEqual(client.request_count, 2)
+        self.assertIn('after one refresh', result.warning)
+        result = SitemapConnector().fetch(config, FakeClient('<html>Access denied</html>'), SINCE)
+        self.assertFalse(result.cursor_complete)
+        self.assertIn('Unexpected sitemap root', result.warning)
+
     def test_amazon_labels_basic_and_preferred_qualification_fields(self):
         payload = {
             "jobs": [

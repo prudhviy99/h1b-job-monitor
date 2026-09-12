@@ -94,6 +94,39 @@ class SessionReportTests(unittest.TestCase):
         self.assertEqual(set(result['jobs'][0]), {'job_key','posted_at'})
         self.assertNotIn('resume', json.dumps(result))
 
+    def test_zero_match_retry_updates_window_report_without_losing_jobs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'summary.md'
+            path.write_text('Original job: Backend Engineer')
+            calls = []
+            reports = []
+            def fake(*args):
+                calls.append(args)
+                return json.dumps([reports]) if args[0] == 'api' else 'https://github.com/o/r/issues/9'
+            publish_session('o/r', 'o', '123', 'First report', path, 1, fake, '2026-09-12-morning')
+            reports.append({'number':9, 'title':'First report', 'body':path.with_name('session-issue.md').read_text()})
+            calls.clear()
+            path.write_text('Expedia access denied; 64/65 healthy; no new matches')
+            publish_session('o/r', 'o', '124', 'Retry', path, 0, fake, '2026-09-12-morning')
+            body = path.with_name('session-issue.md').read_text()
+            self.assertIn('Original job: Backend Engineer', body)
+            self.assertIn('Expedia access denied', body)
+            self.assertFalse(any(c[:2] == ('issue','create') for c in calls))
+            self.assertFalse(any(c[:2] == ('issue','comment') for c in calls))
+            reports[0]['body'] = body
+            path.write_text('Recovered; 65/65 healthy')
+            publish_session('o/r', 'o', '124', 'Retry rerun', path, 0, fake, '2026-09-12-morning')
+            updated = path.with_name('session-issue.md').read_text()
+            self.assertIn('Original job: Backend Engineer', updated)
+            self.assertNotIn('Expedia access denied', updated)
+            self.assertEqual(updated.count('<!-- h1b-session:124 -->'), 1)
+            calls.clear()
+            publish_session('o/r', 'o', '125', 'Evening', path, 0, fake, '2026-09-12-evening')
+            self.assertTrue(any(c[:2] == ('issue','create') for c in calls))
+            calls.clear()
+            publish_session('o/r', 'o', '126', 'New jobs in retry', path, 1, fake, '2026-09-12-morning')
+            self.assertTrue(any(c[:2] == ('issue','create') for c in calls))
+
 
 if __name__ == '__main__':
     unittest.main()

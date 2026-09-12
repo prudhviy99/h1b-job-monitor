@@ -83,7 +83,7 @@ jobs:
             python -m h1b_job_monitor crawl --mode auto --reported-baseline config/reported-baseline.json
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
+          python scripts/crawl_outcome.py "$status" reports/latest.json
 
       - name: Checkpoint persistent state
         id: checkpoint
@@ -137,6 +137,7 @@ jobs:
           ALERT_TITLE: ${{ steps.summary.outputs.alert_title }}
           SESSION_TITLE: ${{ steps.summary.outputs.session_title }}
           NEW_MATCHES: ${{ steps.summary.outputs.new_matches }}
+          SESSION_WINDOW: ${{ steps.cadence.outputs.window_key }}
         run: |
           gh label create h1b-monitor-failure \
             --repo "$GITHUB_REPOSITORY" \
@@ -157,9 +158,6 @@ jobs:
                 --repo "$GITHUB_REPOSITORY" \
                 --title "$ALERT_TITLE" \
                 --body-file reports/github-summary.md
-              gh issue comment "$OPEN_FAILURE" \
-                --repo "$GITHUB_REPOSITORY" \
-                --body "Failure update from [workflow run $GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). The issue body now contains the latest exact source status."
             else
               gh issue create \
                 --repo "$GITHUB_REPOSITORY" \
@@ -168,11 +166,8 @@ jobs:
                 --title "$ALERT_TITLE" \
                 --body-file reports/github-summary.md
             fi
-          else
+          elif [ "$ALERT_KIND" != "source-warning" ]; then
             if [ -n "$OPEN_FAILURE" ]; then
-              gh issue comment "$OPEN_FAILURE" \
-                --repo "$GITHUB_REPOSITORY" \
-                --body "Recovered: all enabled sources checked successfully in [workflow run $GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). This failure alert is resolved; job-match issues remain open."
               gh issue close "$OPEN_FAILURE" \
                 --repo "$GITHUB_REPOSITORY" \
                 --reason completed
@@ -256,9 +251,6 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --title "H-1B monitor infrastructure failure" \
               --body-file reports/infrastructure-failure.md
-            gh issue comment "$OPEN_FAILURE" \
-              --repo "$GITHUB_REPOSITORY" \
-              --body "Infrastructure failure update from [workflow run $GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
           else
             gh issue create \
               --repo "$GITHUB_REPOSITORY" \

@@ -98,11 +98,22 @@ class SitemapConnector(Connector):
             response = client.get(sitemap_url, access_policy=access, use_cache=True)
             try:
                 root = ET.fromstring(response.body)
-            except ET.ParseError as exc:
-                warning_parts.append(f"Invalid XML sitemap {sitemap_url}: {exc}")
+            except ET.ParseError:
+                # Some official sites transiently publish truncated/broken XML.
+                # Refresh once through the same robots/rate-limited client,
+                # bypassing only our conditional cache, never access controls.
+                try:
+                    refreshed = client.get(sitemap_url, access_policy=access, use_cache=False)
+                    root = ET.fromstring(refreshed.body)
+                except (ET.ParseError, HttpError) as exc:
+                    warning_parts.append(f"Invalid XML sitemap {sitemap_url} after one refresh: {exc}")
+                    cursor_complete = False
+                    continue
+            root_kind = _local_name(root.tag)
+            if root_kind not in {"sitemapindex", "urlset"}:
+                warning_parts.append(f"Unexpected sitemap root {root_kind!r} at {sitemap_url}")
                 cursor_complete = False
                 continue
-            root_kind = _local_name(root.tag)
             if root_kind == "sitemapindex":
                 for node in list(root):
                     values = _children_text(node)
